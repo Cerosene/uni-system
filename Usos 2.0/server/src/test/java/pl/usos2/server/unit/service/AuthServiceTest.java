@@ -37,6 +37,15 @@ class AuthServiceTest {
     }
 
     @Test
+    void shouldThrowExceptionForInactiveUser() {
+        student.setActive(false);
+        authService.register(student);
+
+        assertThrows(IllegalStateException.class,
+                () -> authService.login("mateusz@test.pl", "secret123"));
+    }
+
+    @Test
     void shouldThrowExceptionWhenEmailAlreadyExists() {
         authService.register(student);
 

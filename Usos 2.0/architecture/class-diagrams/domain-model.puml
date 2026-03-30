@@ -1,0 +1,122 @@
+@startuml
+
+abstract class BaseEntity {
+  - id: Long
+}
+
+abstract class User {
+  - firstName: String
+  - lastName: String
+  - email: String
+  - password: String
+  - role: UserRole
+  - active: boolean
+  + getFullName(): String
+}
+
+class Employee {
+  - employeeNumber: String
+  - position: String
+  - salary: BigDecimal
+}
+
+class Student {
+  - studentNumber: String
+  - fieldOfStudy: String
+  - semester: Semester
+}
+
+class Lecturer {
+  - academicTitle: String
+}
+
+class Administrator
+
+class Course {
+  - name: String
+  - code: String
+  - ects: int
+}
+
+class StudentGroup {
+  - name: String
+}
+
+class Grade {
+  - value: double
+  - description: String
+}
+
+class Request {
+  - type: RequestType
+  - content: String
+  - status: RequestStatus
+  - createdAt: LocalDateTime
+}
+
+class Message {
+  - subject: String
+  - content: String
+  - sentAt: LocalDateTime
+  - status: MessageStatus
+}
+
+class ServiceTicket {
+  - title: String
+  - description: String
+  - status: ServiceTicketStatus
+  - createdAt: LocalDateTime
+}
+
+class Payment {
+  - amount: BigDecimal
+  - title: String
+  - paid: boolean
+  - dueDate: LocalDate
+}
+
+class Rental {
+  - resourceName: String
+  - rentalDate: LocalDate
+  - returnDate: LocalDate
+  - returned: boolean
+}
+
+enum UserRole
+enum Semester
+enum RequestType
+enum RequestStatus
+enum MessageStatus
+enum ServiceTicketStatus
+
+BaseEntity <|-- User
+BaseEntity <|-- Course
+BaseEntity <|-- StudentGroup
+BaseEntity <|-- Grade
+BaseEntity <|-- Request
+BaseEntity <|-- Message
+BaseEntity <|-- ServiceTicket
+BaseEntity <|-- Payment
+BaseEntity <|-- Rental
+
+User <|-- Student
+User <|-- Employee
+Employee <|-- Lecturer
+Employee <|-- Administrator
+
+Course --> Lecturer
+StudentGroup --> Course
+StudentGroup --> Lecturer
+StudentGroup "1" --> "*" Student
+Grade --> Student
+Grade --> Course
+Grade --> Lecturer
+Request --> Student
+Message --> User : sender
+Message --> User : recipient
+ServiceTicket --> User : reporter
+ServiceTicket --> Administrator : assignedTo
+Payment --> Student
+Rental --> User
+
+@enduml

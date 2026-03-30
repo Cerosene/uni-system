@@ -1,0 +1,55 @@
+package pl.usos2.server.unit.model;
+
+import org.junit.jupiter.api.Test;
+import pl.usos2.server.model.academic.Course;
+import pl.usos2.server.model.academic.StudentGroup;
+import pl.usos2.server.model.enumtype.Semester;
+import pl.usos2.server.model.user.Lecturer;
+import pl.usos2.server.model.user.Student;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
+class StudentGroupTest {
+
+    @Test
+    void shouldAddStudentToGroup() {
+        Lecturer lecturer = new Lecturer(
+                1L, "Adam", "Nowak", "adam@test.pl", "haslo123", "EMP001", "dr"
+        );
+
+        Course course = new Course(
+                2L, "Programowanie Obiektowe", "PO123", 5, lecturer
+        );
+
+        StudentGroup group = new StudentGroup(
+                3L, "PO-1", course, lecturer
+        );
+
+        Student student = new Student(
+                4L, "Anna", "Kowalska", "anna@test.pl", "haslo123", "S001", "Informatyka", Semester.SECOND
+        );
+
+        group.addStudent(student);
+
+        assertEquals(1, group.getStudents().size());
+        assertEquals(student, group.getStudents().get(0));
+    }
+
+    @Test
+    void shouldThrowExceptionWhenAddingNullStudent() {
+        Lecturer lecturer = new Lecturer(
+                1L, "Adam", "Nowak", "adam@test.pl", "haslo123", "EMP001", "dr"
+        );
+
+        Course course = new Course(
+                2L, "Programowanie Obiektowe", "PO123", 5, lecturer
+        );
+
+        StudentGroup group = new StudentGroup(
+                3L, "PO-1", course, lecturer
+        );
+
+        assertThrows(IllegalArgumentException.class, () -> group.addStudent(null));
+    }
+}

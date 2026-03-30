@@ -28,6 +28,12 @@ class GradeServiceTest {
     }
 
     @Test
+    void shouldThrowExceptionWhenStudentIsNull() {
+        assertThrows(IllegalArgumentException.class,
+                () -> gradeService.addGrade(null, course, lecturer, 4.0, "Kolokwium"));
+    }
+
+    @Test
     void shouldAddGradeCorrectly() {
         Grade grade = gradeService.addGrade(student, course, lecturer, 4.5, "Kolokwium");
 
