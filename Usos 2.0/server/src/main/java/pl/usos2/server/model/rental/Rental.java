@@ -47,4 +47,8 @@ public class Rental extends BaseEntity {
     public void markAsReturned() {
         this.returned = true;
     }
+
+    public void setReturnDate(LocalDate returnDate) {
+        this.returnDate = returnDate;
+    }
 }

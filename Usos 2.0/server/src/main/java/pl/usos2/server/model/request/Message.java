@@ -51,4 +51,8 @@ public class Message extends BaseEntity {
     public MessageStatus getStatus() {
         return status;
     }
+
+    public void setStatus(MessageStatus status) {
+        this.status = status;
+    }
 }

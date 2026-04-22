@@ -42,4 +42,12 @@ public class Grade extends BaseEntity {
     public String getDescription() {
         return description;
     }
+
+    public void setValue(double value) {
+        this.value = value;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
 }
