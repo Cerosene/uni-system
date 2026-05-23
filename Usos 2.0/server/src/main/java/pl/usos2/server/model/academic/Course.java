@@ -4,6 +4,7 @@ import pl.usos2.server.model.base.BaseEntity;
 import pl.usos2.server.model.user.Lecturer;
 
 public class Course extends BaseEntity {
+
     private String name;
     private String code;
     private int ects;

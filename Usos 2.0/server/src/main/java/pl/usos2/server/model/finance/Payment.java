@@ -13,7 +13,7 @@ public class Payment extends BaseEntity {
     private boolean paid;
     private LocalDate dueDate;
 
-    public Payment() {
+    public Payment(long l, String opłataZaLegitymacjęStudencką, BigDecimal bigDecimal, LocalDate localDate, boolean b) {
     }
 
     public Payment(Long id, Student student, BigDecimal amount, String title, boolean paid, LocalDate dueDate) {
