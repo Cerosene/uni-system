@@ -8,7 +8,7 @@ import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import pl.usos2.client.MainApp;
-import pl.usos2.client.UserRole;
+import pl.usos2.server.model.enumtype.UserRole;
 
 // Подключаем серверную логику авторизации и модель пользователя
 import pl.usos2.server.service.auth.AuthService;
@@ -104,7 +104,7 @@ public class LoginView extends StackPane {
                 String serverRole = loggedInUser.getRole().toString().toUpperCase();
 
                 if (serverRole.contains("ADMIN")) {
-                    mainApp.showMainLayout(UserRole.ADMIN);
+                    mainApp.showMainLayout(UserRole.ADMINISTRATOR);
                 } else if (serverRole.contains("LECTURER")) {
                     mainApp.showMainLayout(UserRole.LECTURER);
                 } else {

@@ -1,6 +1,7 @@
 package pl.usos2.server.model.academic;
 
 import pl.usos2.server.model.base.BaseEntity;
+import pl.usos2.server.model.enumtype.Semester;
 import pl.usos2.server.model.user.Lecturer;
 
 public class Course extends BaseEntity {
@@ -10,7 +11,7 @@ public class Course extends BaseEntity {
     private int ects;
     private Lecturer lecturer;
 
-    public Course() {
+    public Course(long id, String zaawansowaneAlgorytmy, String cs301, int ects, Semester third) {
     }
 
     public Course(Long id, String name, String code, int ects, Lecturer lecturer) {

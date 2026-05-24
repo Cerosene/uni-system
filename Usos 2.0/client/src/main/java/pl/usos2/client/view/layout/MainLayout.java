@@ -10,100 +10,126 @@ import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import pl.usos2.client.MainApp;
-import pl.usos2.client.UserRole;
-import pl.usos2.client.view.admin.EmployeeListView;
-import pl.usos2.client.view.admin.SystemRequestsView;
-import pl.usos2.client.view.admin.UserManagementView;
-import pl.usos2.client.view.admin.AdminScheduleView;
+import pl.usos2.server.model.enumtype.UserRole;
+import pl.usos2.client.util.MockDataProvider;
+import pl.usos2.client.view.student.*;
 import pl.usos2.client.view.lecturer.LecturerCoursesView;
 import pl.usos2.client.view.lecturer.LecturerGradesView;
 import pl.usos2.client.view.lecturer.LecturerMessagesView;
-import pl.usos2.client.view.student.*;
+import pl.usos2.client.view.admin.*;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+
+/**
+ * Główny układ aplikacji (BorderPane) zawierający boczny pasek nawigacyjny (Sidebar)
+ * oraz dynamiczny obszar treści (Content Area). Obsługuje zmianę języków.
+ */
 public class MainLayout extends BorderPane {
-    private StackPane contentArea;
+    private final StackPane contentArea;
     private final UserRole role;
     private final MainApp mainApp;
+
+    // Lista przycisków nawigacyjnych do dynamicznego tłumaczenia i odświeżania UI
+    private final List<NavButtonConfig> navButtons = new ArrayList<>();
 
     public MainLayout(UserRole role, MainApp mainApp) {
         this.role = role;
         this.mainApp = mainApp;
 
-        // --- SIDEBAR ---
-        VBox sidebar = new VBox(10);
+        // --- SIDEBAR (PANEL BOCZNY) ---
+        VBox sidebar = new VBox();
         sidebar.setPadding(new Insets(20));
-        sidebar.setPrefWidth(240);
-        sidebar.setStyle("-fx-background-color: #1e293b;");
+        sidebar.setSpacing(10);
+        sidebar.setStyle("-fx-background-color: #1e293b;"); // Elegancki ciemny grafit (Tailwind slate-800)
+        sidebar.setPrefWidth(260);
 
-        Label logo = new Label("USOS 2.0");
-        logo.setTextFill(Color.WHITE);
-        logo.setFont(Font.font("System", FontWeight.BOLD, 22));
-        logo.setPadding(new Insets(0, 0, 30, 0));
-        sidebar.getChildren().add(logo);
+        // Logo / Nagłówek systemu
+        Label logoLabel = new Label("USOS 2.0");
+        logoLabel.setFont(Font.font("System", FontWeight.BOLD, 22));
+        logoLabel.setTextFill(Color.WHITE);
+        logoLabel.setPadding(new Insets(10, 10, 25, 10));
+        sidebar.getChildren().add(logoLabel);
 
-        // Menu dynamiczne w zależności od roli
+        // Dynamiczne dodawanie menu w zależności od roli użytkownika
         if (role == UserRole.STUDENT) {
             addStudentMenu(sidebar);
         } else if (role == UserRole.LECTURER) {
             addLecturerMenu(sidebar);
-        } else if (role == UserRole.ADMIN) {
+        } else if (role == UserRole.ADMINISTRATOR) {
             addAdminMenu(sidebar);
         }
 
-        // --- DODAJEMY PRZYCISK WYJŚCIA ---
-
-
+        // Elastyczny separator przesuwający dół menu na sam dół ekranu
         Region spacer = new Region();
         VBox.setVgrow(spacer, Priority.ALWAYS);
         sidebar.getChildren().add(spacer);
 
-        Button logoutBtn = createNavButton("Logout", () -> mainApp.showLogin());
-        logoutBtn.setStyle(logoutBtn.getStyle() + "-fx-text-fill: #f87171;");
+        // --- PRZEŁĄCZNIK JĘZYKÓW (PL / EN) ---
+        HBox languageBox = new HBox(10);
+        languageBox.setAlignment(Pos.CENTER);
+        languageBox.setPadding(new Insets(10, 0, 10, 0));
 
-        // Efekt dla przycisku wyjścia (czerwone tło po najechaniu kursorem)
-        logoutBtn.setOnMouseEntered(e -> logoutBtn.setStyle("-fx-background-color: #7f1d1d; -fx-text-fill: white; -fx-font-size: 14;"));
-        logoutBtn.setOnMouseExited(e -> logoutBtn.setStyle("-fx-background-color: transparent; -fx-text-fill: #f87171; -fx-font-size: 14;"));
+        Button btnPl = new Button("PL");
+        btnPl.setStyle("-fx-background-color: #334155; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand;");
+        btnPl.setOnAction(e -> changeLanguage(new Locale("pl")));
 
+        Button btnEn = new Button("EN");
+        btnEn.setStyle("-fx-background-color: #334155; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand;");
+        btnEn.setOnAction(e -> changeLanguage(new Locale("en")));
+
+        languageBox.getChildren().addAll(btnPl, btnEn);
+        sidebar.getChildren().add(languageBox);
+
+        // Przycisk wylogowania
+        Button logoutBtn = createNavButton("logout", () -> mainApp.showLogin());
+        logoutBtn.setStyle("-fx-background-color: #ef4444; -fx-text-fill: white; -fx-cursor: hand; -fx-font-weight: bold;");
         sidebar.getChildren().add(logoutBtn);
 
-        // --- CONTENT AREA ---
-        contentArea = new StackPane();
-        contentArea.setStyle("-fx-background-color: #f8fafc;");
-
         setLeft(sidebar);
+
+        // --- OBSZAR CENTRALNY (DYNAMICZNA TREŚĆ) ---
+        contentArea = new StackPane();
+        contentArea.setStyle("-fx-background-color: #f8fafc;"); // Jasne tło aplikacji
         setCenter(contentArea);
 
+        // Ładowanie domyślnego ekranu startowego (Dashboard)
         setContent(new DashboardView(this.role, this));
+
+        // Nasłuchiwanie zmian globalnej lokalizacji w celu automatycznego tłumaczenia paska bocznego
+        MockDataProvider.currentLocaleProperty().addListener((obs, oldLocale, newLocale) -> refreshLocalization());
     }
 
     private void addStudentMenu(VBox sidebar) {
         sidebar.getChildren().addAll(
-                createNavButton("Dashboard", () -> setContent(new DashboardView(role, this))),
-                createNavButton("Schedule", () -> setContent(new ScheduleView())),
-                createNavButton("Grades", () -> setContent(new GradesView())),
-                createNavButton("Wiadomości", () -> setContent(new MessagesView())),
-                createNavButton("Payments", () -> setContent(new PaymentsView()))
+                createNavButton("dashboard", () -> setContent(new DashboardView(this.role, this))),
+                createNavButton("schedule", () -> setContent(new ScheduleView())),
+                createNavButton("grades", () -> setContent(new GradesView())),
+                createNavButton("messages", () -> setContent(new MessagesView())),
+                createNavButton("requests", () -> setContent(new ApplicationsView())),
+                createNavButton("payments", () -> setContent(new PaymentsView())),
+                createNavButton("tickets", () -> setContent(new ThesisView())) // Tymczasowo podpięte pod istniejący ThesisView
         );
     }
 
     private void addLecturerMenu(VBox sidebar) {
         sidebar.getChildren().addAll(
-                createNavButton("Dashboard", () -> setContent(new DashboardView(this.role, this))),
-                createNavButton("My Courses", () -> setContent(new LecturerCoursesView(this))),
-                createNavButton("Grade Students", () -> setContent(new LecturerGradesView())),
-                createNavButton("Schedule", () -> setContent(new ScheduleView())),
-                createNavButton("Messages", () -> setContent(new LecturerMessagesView()))
+                createNavButton("dashboard", () -> setContent(new DashboardView(this.role, this))),
+                createNavButton("grades", () -> setContent(new LecturerGradesView())),
+                createNavButton("messages", () -> setContent(new LecturerMessagesView())),
+                createNavButton("course", () -> setContent(new LecturerCoursesView(this))),
+                createNavButton("schedule", () -> setContent(new ScheduleView()))
         );
     }
 
-
     private void addAdminMenu(VBox sidebar) {
         sidebar.getChildren().addAll(
-                createNavButton("Dashboard", () -> setContent(new DashboardView(this.role, this))),
-                createNavButton("User Management", () -> setContent(new UserManagementView())),
-                createNavButton("Employee List", () -> setContent(new EmployeeListView())),
-                createNavButton("Global Schedule", () -> setContent(new AdminScheduleView())),
-                createNavButton("System Requests", () -> setContent(new SystemRequestsView()))
+                createNavButton("dashboard", () -> setContent(new DashboardView(this.role, this))),
+                createNavButton("users", () -> setContent(new UserManagementView())),
+                createNavButton("employees", () -> setContent(new EmployeeListView())),
+                createNavButton("schedule", () -> setContent(new AdminScheduleView())),
+                createNavButton("requests", () -> setContent(new SystemRequestsView()))
         );
     }
 
@@ -111,17 +137,68 @@ public class MainLayout extends BorderPane {
         contentArea.getChildren().setAll(node);
     }
 
-    private Button createNavButton(String text, Runnable action) {
-        Button btn = new Button(text);
+    /**
+     * Tworzy przycisk nawigacyjny, rejestruje go w systemie i wiąże z kluczem lokalizacyjnym.
+     */
+    private Button createNavButton(String i18nKey, Runnable action) {
+        Button btn = new Button(MockDataProvider.i18n(i18nKey));
         btn.setMaxWidth(Double.MAX_VALUE);
         btn.setAlignment(Pos.CENTER_LEFT);
         btn.setPadding(new Insets(12, 15, 12, 15));
         btn.setStyle("-fx-background-color: transparent; -fx-text-fill: #94a3b8; -fx-cursor: hand; -fx-font-size: 14;");
 
         btn.setOnAction(e -> action.run());
-        btn.setOnMouseEntered(e -> btn.setStyle("-fx-background-color: #334155; -fx-text-fill: white; -fx-font-size: 14;"));
-        btn.setOnMouseExited(e -> btn.setStyle("-fx-background-color: transparent; -fx-text-fill: #94a3b8; -fx-font-size: 14;"));
 
+        // Efekty najechania myszką (Hover effects)
+        btn.setOnMouseEntered(e -> {
+            if (!btn.getStyle().contains("#ef4444")) {
+                btn.setStyle("-fx-background-color: #334155; -fx-text-fill: white; -fx-cursor: hand; -fx-font-size: 14;");
+            }
+        });
+        btn.setOnMouseExited(e -> {
+            if (!btn.getStyle().contains("#ef4444")) {
+                btn.setStyle("-fx-background-color: transparent; -fx-text-fill: #94a3b8; -fx-cursor: hand; -fx-font-size: 14;");
+            }
+        });
+
+        navButtons.add(new NavButtonConfig(btn, i18nKey));
         return btn;
+    }
+
+    /**
+     * Zmienia globalną lokalizację w dostawcy danych.
+     */
+    private void changeLanguage(Locale locale) {
+        MockDataProvider.setCurrentLocale(locale);
+    }
+
+    /**
+     * Odświeża teksty wszystkich zarejestrowanych przycisków bocznych po zmianie języka
+     * oraz wymusza aktualizację językową aktywnego panelu głównego (Dashboard).
+     */
+    private void refreshLocalization() {
+        // Aktualizacja napisów na przyciskach paska bocznego (Sidebar)
+        for (NavButtonConfig config : navButtons) {
+            config.button.setText(MockDataProvider.i18n(config.key));
+        }
+
+        // Sprawdzenie, czy aktualnie wyświetlanym oknem w contentArea jest DashboardView
+        if (!contentArea.getChildren().isEmpty() && contentArea.getChildren().get(0) instanceof DashboardView) {
+            // Rzutowanie i wywołanie metody translate() bezpośrednio na obiekcie widoku panelu
+            ((DashboardView) contentArea.getChildren().get(0)).translate();
+        }
+    }
+
+    /**
+     * Klasa pomocnicza przechowująca konfigurację przycisku i jego klucza i18n.
+     */
+    private static class NavButtonConfig {
+        Button button;
+        String key;
+
+        NavButtonConfig(Button button, String key) {
+            this.button = button;
+            this.key = key;
+        }
     }
 }

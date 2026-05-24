@@ -8,6 +8,7 @@ import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import pl.usos2.server.model.finance.Payment;
+import pl.usos2.client.util.MockDataProvider;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -15,136 +16,164 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Widok panelu finansowego i opłat studenta.
+ * Zawiera kartę podsumowania salda oraz tabelę historii operacji.
+ * Dostosowany do i18n, wszystkie komentarze są napisane po polsku.
+ */
 public class PaymentsView extends VBox {
 
+    // Węzły strukturalne UI do aktualizacji językowej
+    private final Label titleLabel;
+    private final Label accountStatusTitle;
+    private final Label balanceSubLabel;
+    private final Label historyLabel;
+
+    // Kolumny tabeli wymagające tłumaczenia nagłówków
+    private final TableView<Payment> table;
+    private final TableColumn<Payment, String> titleCol;
+    private final TableColumn<Payment, BigDecimal> amountCol;
+    private final TableColumn<Payment, LocalDate> dateCol;
+    private final TableColumn<Payment, Boolean> statusCol;
+
     public PaymentsView() {
-        // Konfiguracja głównego kontenera (odstępy i jasne tło w stylu Tailwind)
         setPadding(new Insets(30));
         setSpacing(25);
         setStyle("-fx-background-color: #f8fafc;");
 
-        // Nagłówek widoku
-        Label title = new Label("Moje Płatności");
-        title.setFont(Font.font("System", FontWeight.BOLD, 26));
+        // Główny tytuł sekcji opłat
+        titleLabel = new Label();
+        titleLabel.setFont(Font.font("System", FontWeight.BOLD, 26));
 
-        // --- KARTA BILANSOWA (Balance Card) ---
-        HBox balanceCard = new HBox(40); // Odstęp między sekcjami wewnątrz karty
+        // --- KARTA BILANSOWA (BALANCE CARD) ---
+        HBox balanceCard = new HBox(40);
         balanceCard.setPadding(new Insets(25, 30, 25, 30));
         balanceCard.setStyle("-fx-background-color: white; " +
                 "-fx-background-radius: 12; " +
-                "-fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.04), 10, 0, 0, 4);");
+                "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.04), 10, 0, 0, 4); " +
+                "-fx-border-color: #e2e8f0; -fx-border-width: 1; -fx-border-radius: 12;");
         balanceCard.setAlignment(Pos.CENTER_LEFT);
 
-        // Sekcja: Suma do zapłaty (Zadłużenie)
-        VBox toPayBox = new VBox(5);
-        Label toPayTitle = new Label("Do zapłaty:");
-        toPayTitle.setTextFill(Color.web("#64748b")); // Szary tekst pomocniczy
-        toPayTitle.setFont(Font.font("System", FontWeight.MEDIUM, 14));
+        VBox balanceLeft = new VBox(5);
+        accountStatusTitle = new Label();
+        accountStatusTitle.setTextFill(Color.web("#64748b"));
+        accountStatusTitle.setFont(Font.font("System", FontWeight.SEMI_BOLD, 14));
 
-        Label toPayValue = new Label("250.00 PLN");
-        toPayValue.setTextFill(Color.web("#e11d48")); // Czerwony kolor oznaczający kwotę do zapłaty
-        toPayValue.setFont(Font.font("System", FontWeight.BOLD, 24));
-        toPayBox.getChildren().addAll(toPayTitle, toPayValue);
+        Label balanceValue = new Label("0.00 PLN");
+        balanceValue.setFont(Font.font("System", FontWeight.BOLD, 28));
+        balanceValue.setTextFill(Color.web("#10b981")); // Zielony kolor oznacza brak zadłużeń
 
-        // Pionowy separator rozdzielający dane na karcie
-        Separator separator = new Separator();
-        separator.setOrientation(javafx.geometry.Orientation.VERTICAL);
-        separator.setPrefHeight(40);
+        balanceSubLabel = new Label();
+        balanceSubLabel.setTextFill(Color.web("#94a3b8"));
+        balanceSubLabel.setFont(Font.font("System", 12));
 
-        // Sekcja: Indywidualny numer konta bankowego studenta
-        VBox accountBox = new VBox(5);
-        Label accountTitle = new Label("Indywidualny numer konta do wpłat:");
-        accountTitle.setTextFill(Color.web("#64748b"));
-        accountTitle.setFont(Font.font("System", FontWeight.MEDIUM, 14));
+        balanceLeft.getChildren().addAll(accountStatusTitle, balanceValue, balanceSubLabel);
+        balanceCard.getChildren().add(balanceLeft);
 
-        Label accountValue = new Label("12 1050 1025 0000 0022 3456 7890");
-        accountValue.setTextFill(Color.web("#1e293b")); // Ciemny, czytelny tekst
-        accountValue.setFont(Font.font("System", FontWeight.BOLD, 16));
-        accountBox.getChildren().addAll(accountTitle, accountValue);
+        // --- SEKRETY HISTORII PŁATNOŚCI (TABELA) ---
+        historyLabel = new Label();
+        historyLabel.setFont(Font.font("System", FontWeight.SEMI_BOLD, 15));
+        historyLabel.setTextFill(Color.web("#334155"));
 
-        // Dodanie elementów do karty bilansowej
-        balanceCard.getChildren().addAll(toPayBox, separator, accountBox);
-
-
-        // --- TABELA PŁATNOŚCI (TableView) ---
-        TableView<Payment> table = new TableView<>();
+        table = new TableView<>();
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
-        table.setPrefHeight(350);
-        table.setStyle("-fx-background-radius: 8;");
+        table.setStyle("-fx-background-radius: 8; -fx-overflow-x: hidden;");
 
-        // Kolumna 1: Tytuł płatności
-        TableColumn<Payment, String> titleCol = new TableColumn<>("Tytuł płatności");
+        // Definicja kolumn tabeli
+        titleCol = new TableColumn<>();
         titleCol.setCellValueFactory(d -> new javafx.beans.property.SimpleStringProperty(d.getValue().getTitle()));
 
-        // Kolumna 2: Kwota (z doklejoną walutą PLN)
-        TableColumn<Payment, String> amountCol = new TableColumn<>("Kwota");
-        amountCol.setCellValueFactory(d -> new javafx.beans.property.SimpleStringProperty(
-                d.getValue().getAmount() != null ? d.getValue().getAmount().toString() + " PLN" : "0.00 PLN"
-        ));
-
-        // Kolumna 3: Termin płatności (Formatowanie LocalDate do String rrrr-mm-dd)
-        TableColumn<Payment, String> dateCol = new TableColumn<>("Termin");
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-        dateCol.setCellValueFactory(d -> {
-            LocalDate date = d.getValue().getDueDate();
-            return new javafx.beans.property.SimpleStringProperty(date != null ? date.format(formatter) : "—");
-        });
-
-        // Kolumna 4: Status płatności
-        TableColumn<Payment, String> statusCol = new TableColumn<>("Status");
-        statusCol.setCellValueFactory(d -> new javafx.beans.property.SimpleStringProperty(
-                d.getValue().isPaid() ? "Zapłacone" : "Nieopłacone"
-        ));
-
-        // Customowe renderowanie komórek statusu (Dynamiczna zmiana kolorów czcionki)
-        statusCol.setCellFactory(column -> new TableCell<>() {
+        amountCol = new TableColumn<>();
+        amountCol.setCellValueFactory(d -> new javafx.beans.property.SimpleObjectProperty<>(d.getValue().getAmount()));
+        amountCol.setCellFactory(col -> new TableCell<>() {
             @Override
-            protected void updateItem(String item, boolean empty) {
+            protected void updateItem(BigDecimal item, boolean empty) {
                 super.updateItem(item, empty);
                 if (empty || item == null) {
                     setText(null);
-                    setStyle("");
                 } else {
-                    setText(item);
-                    if (item.equals("Nieopłacone")) {
-                        setTextFill(Color.web("#e11d48")); // Kolor czerwony dla nieopłaconych
-                        setStyle("-fx-font-weight: bold;");
-                    } else {
-                        setTextFill(Color.web("#10b981")); // Kolor zielony dla zapłaconych
-                        setStyle("-fx-font-weight: bold;");
-                    }
+                    setText(String.format("%.2f PLN", item));
+                    setStyle("-fx-font-weight: bold;");
                 }
             }
         });
 
-        // Dodanie wszystkich skonfigurowanych kolumn do tabeli
-        table.getColumns().addAll(titleCol, amountCol, dateCol, statusCol);
+        dateCol = new TableColumn<>();
+        dateCol.setCellValueFactory(d -> new javafx.beans.property.SimpleObjectProperty<>(d.getValue().getDueDate()));
+        dateCol.setCellFactory(col -> new TableCell<>() {
+            private final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+            @Override
+            protected void updateItem(LocalDate item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                } else {
+                    setText(item.format(formatter));
+                }
+            }
+        });
 
-        // Ładowanie testowych danych do tabeli (Mock Data)
+        statusCol = new TableColumn<>();
+        statusCol.setCellValueFactory(d -> new javafx.beans.property.SimpleObjectProperty<>(d.getValue().isPaid()));
+        statusCol.setCellFactory(col -> new TableCell<>() {
+            @Override
+            protected void updateItem(Boolean item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                    setGraphic(null);
+                } else {
+                    Label statusTag = new Label(item ? MockDataProvider.i18n("payment_status_paid") : MockDataProvider.i18n("payment_status_unpaid"));
+                    statusTag.setPadding(new Insets(3, 8, 3, 8));
+                    if (item) {
+                        statusTag.setStyle("-fx-background-color: #dcfce7; -fx-text-fill: #15803d; -fx-background-radius: 4; -fx-font-weight: bold; -fx-font-size: 11;");
+                    } else {
+                        statusTag.setStyle("-fx-background-color: #fee2e2; -fx-text-fill: #b91c1c; -fx-background-radius: 4; -fx-font-weight: bold; -fx-font-size: 11;");
+                    }
+                    setGraphic(statusTag);
+                }
+            }
+        });
+
+        table.getColumns().addAll(titleCol, amountCol, dateCol, statusCol);
         table.getItems().addAll(getMockPayments());
 
-        // Etykieta sekcji historii płatności
-        Label historyLabel = new Label("Historia i nadchodzące opłaty:");
-        historyLabel.setFont(Font.font("System", FontWeight.SEMI_BOLD, 15));
-        historyLabel.setTextFill(Color.web("#334155"));
+        getChildren().addAll(titleLabel, balanceCard, historyLabel, table);
 
-        // Złożenie całego widoku VBox z przygotowanych komponentów
-        getChildren().addAll(title, balanceCard, historyLabel, table);
+        // Ustawienie aktualnego języka na starcie widoku
+        refreshLocalization();
+
+        // Słuchacz globalnego przełącznika języka w MockDataProvider
+        MockDataProvider.currentLocaleProperty().addListener((obs, oldLocale, newLocale) -> refreshLocalization());
     }
 
     /**
-     * Metoda pomocnicza generująca testowe dane płatności (Mock Data).
-     * Wykorzystuje rzeczywiste obiekty klas BigDecimal oraz LocalDate.
+     * Tworzy przykładowy zestaw rozliczeń finansowych studenta.
      */
     private List<Payment> getMockPayments() {
         List<Payment> list = new ArrayList<>();
-
-        // Konstruktor przyjmuje parametry: (Long id, String title, BigDecimal amount, LocalDate dueDate, boolean isPaid)
         list.add(new Payment(1L, "Opłata za legitymację studencką", new BigDecimal("22.00"), LocalDate.of(2025, 10, 15), true));
         list.add(new Payment(2L, "Czesne - Semestr 3 (Rata 1/1)", new BigDecimal("2000.00"), LocalDate.of(2025, 11, 1), true));
-        list.add(new Payment(3L, "Opłata za powtarzanie przedmiotu: Algorytmy Zaawansowane", new BigDecimal("250.00"), LocalDate.of(2026, 6, 15), false));
-        list.add(new Payment(4L, "Ubezpieczenie NNW studenckie", new BigDecimal("50.00"), LocalDate.of(2025, 11, 30), true));
-
+        list.add(new Payment(3L, "Opłata za powtarzanie kursu: Sieci Komputerowe", new BigDecimal("450.00"), LocalDate.of(2026, 06, 15), false));
         return list;
+    }
+
+    /**
+     * Odświeża nazwy etykiet oraz nagłówki kolumn tabeli zgodnie z wybranym językiem (PL/EN).
+     */
+    private void refreshLocalization() {
+        titleLabel.setText(MockDataProvider.i18n("payments_title_main"));
+        accountStatusTitle.setText(MockDataProvider.i18n("account_balance_status"));
+        balanceSubLabel.setText(MockDataProvider.i18n("balance_sub_info"));
+        historyLabel.setText(MockDataProvider.i18n("payments_history_label"));
+
+        // Aktualizacja nagłówków kolumn tabeli
+        titleCol.setText(MockDataProvider.i18n("col_payment_title"));
+        amountCol.setText(MockDataProvider.i18n("col_payment_amount"));
+        dateCol.setText(MockDataProvider.i18n("col_payment_date"));
+        statusCol.setText(MockDataProvider.i18n("col_payment_status"));
+
+        // Odświeżenie widoku tabeli, aby wymusić ponowne przerysowanie komórek statusu
+        table.refresh();
     }
 }

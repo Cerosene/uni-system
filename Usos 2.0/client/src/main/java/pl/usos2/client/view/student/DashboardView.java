@@ -2,17 +2,37 @@ package pl.usos2.client.view.student;
 
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Node;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
-import pl.usos2.client.UserRole;
+import pl.usos2.server.model.enumtype.UserRole;
 import pl.usos2.client.view.layout.MainLayout;
+import pl.usos2.client.view.student.*;
+import pl.usos2.client.view.lecturer.LecturerCoursesView;
+import pl.usos2.client.view.lecturer.LecturerGradesView;
+import pl.usos2.client.view.lecturer.LecturerMessagesView;
+import pl.usos2.client.view.admin.*;
+import pl.usos2.client.util.MockDataProvider;
 
+/**
+ * Widok panelu głównego (Dashboard) dostosowujący się dynamicznie do roli zalogowanego użytkownika.
+ * Obsługuje dynamiczne przełączanie widoków w MainLayout poprzez interfejs funkcyjny Consumer.
+ */
 public class DashboardView extends ScrollPane {
-    private MainLayout mainLayout;
+    private final MainLayout mainLayout;
     private final UserRole role;
+
+    // Kontener główny dla wszystkich elementów widoku panelu sterowania
+    private final VBox mainContainer;
+
+    // Węzły UI wymagające dynamicznej aktualizacji tekstów po zmianie języka (i18n)
+    private Label welcomeLabel;
+    private Label infoLabel;
+    private Label statsTitleLabel;
+    private Label actionsTitleLabel;
 
     public DashboardView(UserRole role, MainLayout mainLayout) {
         this.mainLayout = mainLayout;
@@ -21,140 +41,210 @@ public class DashboardView extends ScrollPane {
         setFitToWidth(true);
         setStyle("-fx-background-color: #f8fafc; -fx-background: #f8fafc;");
 
-        VBox mainContainer = new VBox(30);
+        mainContainer = new VBox(30);
         mainContainer.setPadding(new Insets(30));
-        mainContainer.setAlignment(Pos.TOP_CENTER);
+        mainContainer.setStyle("-fx-background-color: #f8fafc;");
 
-        // --- STATYSTYKA ---
-        HBox statsRow = new HBox(20);
-        statsRow.setAlignment(Pos.CENTER);
+        // 1. Sekcja powitalna (Header)
+        createHeaderSection();
 
-        if (role == UserRole.STUDENT) {
-            statsRow.getChildren().addAll(
-                    createStatCard("Current GPA", "4.2", "+0.3 from last sem", "#3b82f6"),
-                    createStatCard("Credits", "120/180", "66% completed", "#10b981")
-            );
-        } else if (role == UserRole.LECTURER) {
-            statsRow.getChildren().addAll(
-                    createStatCard("Active Courses", "3", "Current semester", "#3b82f6"),
-                    createStatCard("Total Students", "185", "Across all groups", "#10b981"),
-                    createStatCard("Pending Grades", "12", "Need review", "#ea580c")
-            );
-        } else if (role == UserRole.ADMIN) {
-            statsRow.getChildren().addAll(
-                    createStatCard("Total Users", "1,240", "Students & Staff", "#3b82f6"),
-                    createStatCard("System Load", "24%", "Stable", "#10b981")
-            );
-        }
+        // 2. Sekcja statystyk (Cards) - zależna od roli
+        createStatsSection();
 
-        // -- Quick Actions ---
-        VBox quickActionsSection = new VBox(15);
-        Label sectionTitle = new Label("Quick Navigation");
-        sectionTitle.setFont(Font.font("System", FontWeight.BOLD, 18));
+        // 3. Sekcja szybkich działań (Quick Actions) - zintegrowana z metodą setContent z MainLayout
+        createQuickActionsSection();
 
-        // Siatka na przyciski w układzie 4 w rzędzie
-        TilePane actionGrid = new TilePane();
-        actionGrid.setHgap(15);
-        actionGrid.setVgap(15);
-        actionGrid.setPrefColumns(4);
-        actionGrid.setAlignment(Pos.CENTER);
-
-        // Dodanie przecisków
-        actionGrid.getChildren().addAll(
-                createActionButton("Rejestracja", "#eff6ff", "#2563eb", () -> System.out.println("Reg")),
-                createActionButton("Sprawdziany", "#fff7ed", "#ea580c", null),
-                createActionButton("Oceny", "#f0fdf4", "#16a34a", () ->
-                        mainLayout.setContent(new GradesView())),
-                createActionButton("Podpięcia", "#faf5ff", "#9333ea", null),
-                createActionButton("Decyzje", "#fff7ed", "#ea580c", null),
-                createActionButton("Zaliczenia etapów", "#f0fdf4", "#16a34a", null),
-                createActionButton("Wnioski", "#faf5ff", "#9333ea", () ->
-                        mainLayout.setContent(new ApplicationsView())),
-                createActionButton("Wybór promotora", "#fdf2f8", "#db2777", () ->
-                        mainLayout.setContent(new ThesisView())),
-                createActionButton("Stypendia", "#f0f9ff", "#0284c7", null),
-                createActionButton("Ankiety", "#faf5ff", "#9333ea", null),
-                createActionButton("Platności", "#fdf2f8", "#db2777", null),
-                createActionButton("Dyplomy", "#f0f9ff", "#0284c7", null)
-        );
-
-        quickActionsSection.getChildren().addAll(sectionTitle, actionGrid);
-
-        // --- OGŁOSZENIA I ROZKŁAD (dolny rząd) ---
-        HBox bottomRow = new HBox(20);
-        VBox annBox = createContentCard("Announcements");
-        addAnnouncement(annBox, "System Maintenance", "2026-04-12", "Scheduled downtime at 10 PM.", "info");
-
-        VBox schedBox = createContentCard("Next Class");
-        addScheduleItem(schedBox, "14:00", "Computer Networks", "C-102", "Dr. Wiśniewski");
-
-        HBox.setHgrow(annBox, Priority.ALWAYS);
-        HBox.setHgrow(schedBox, Priority.ALWAYS);
-        bottomRow.getChildren().addAll(annBox, schedBox);
-
-        mainContainer.getChildren().addAll(statsRow, quickActionsSection, bottomRow);
         setContent(mainContainer);
     }
 
-    // Metoda tworzenia stylowych płytek-przycisków
-    private VBox createActionButton(String text, String bgColor, String textColor, Runnable action) {
-        VBox card = new VBox();
-        card.setAlignment(Pos.CENTER);
-        card.setPrefSize(180, 100);
-        card.setPadding(new Insets(15));
+    private void createHeaderSection() {
+        VBox headerBox = new VBox(8);
+        headerBox.setPadding(new Insets(20));
+        headerBox.setStyle("-fx-background-color: white; -fx-background-radius: 16; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.03), 10, 0, 0, 2);");
 
-        // Stylizacja imitująca „płytki”
-        card.setStyle("-fx-background-color: " + bgColor + "; " +
-                "-fx-background-radius: 12; " +
-                "-fx-border-color: " + textColor + "; " +
-                "-fx-border-width: 0.5; " +
-                "-fx-border-radius: 12; " +
-                "-fx-cursor: hand;");
+        welcomeLabel = new Label(MockDataProvider.i18n("dash_welcome") + ", Dmytro Lytvyn!");
+        welcomeLabel.setFont(Font.font("System", FontWeight.BOLD, 26));
+        welcomeLabel.setTextFill(Color.web("#1e293b"));
 
-        Label label = new Label(text);
-        label.setTextFill(Color.web(textColor));
-        label.setFont(Font.font("System", FontWeight.BOLD, 14));
+        infoLabel = new Label(MockDataProvider.i18n("dash_info_sub"));
+        infoLabel.setFont(Font.font("System", 14));
+        infoLabel.setTextFill(Color.web("#64748b"));
 
-        card.getChildren().add(label);
+        headerBox.getChildren().addAll(welcomeLabel, infoLabel);
+        mainContainer.getChildren().add(headerBox);
+    }
 
-        // Efekt naprowadzania
-        card.setOnMouseEntered(e -> card.setStyle(card.getStyle() + "-fx-effect: dropshadow(three-pass-box, " + textColor + "44, 10, 0, 0, 0);"));
-        card.setOnMouseExited(e -> card.setStyle(card.getStyle().split("-fx-effect")[0]));
+    private void createStatsSection() {
+        VBox statsWrapper = new VBox(15);
 
-        card.setOnMouseClicked(e -> {
-            if (action != null) action.run();
-        });
+        statsTitleLabel = new Label(MockDataProvider.i18n("dash_stats_title"));
+        statsTitleLabel.setFont(Font.font("System", FontWeight.BOLD, 18));
+        statsTitleLabel.setTextFill(Color.web("#334155"));
+        statsWrapper.getChildren().add(statsTitleLabel);
+
+        FlowPane statsGrid = new FlowPane(20, 20);
+
+        if (role == UserRole.STUDENT) {
+            statsGrid.getChildren().addAll(
+                    createStatCard("dash_stat_gpa", "4.52", "dash_stat_gpa_sub", "#3b82f6"),
+                    createStatCard("dash_stat_ects", "30 / 30", "dash_stat_ects_sub", "#10b981"),
+                    createStatCard("dash_stat_payments", "0.00 PLN", "dash_stat_payments_sub", "#ef4444")
+            );
+        } else if (role == UserRole.LECTURER) {
+            statsGrid.getChildren().addAll(
+                    createStatCard("dash_stat_courses", "3", "dash_stat_courses_sub", "#8b5cf6"),
+                    createStatCard("dash_stat_students", "185", "dash_stat_students_sub", "#f59e0b"),
+                    createStatCard("dash_stat_messages", "5", "dash_stat_messages_sub", "#06b6d4")
+            );
+        } else if (role == UserRole.ADMINISTRATOR) {
+            statsGrid.getChildren().addAll(
+                    createStatCard("dash_stat_total_users", "2,450", "dash_stat_total_users_sub", "#3b82f6"),
+                    createStatCard("dash_stat_active_req", "12", "dash_stat_active_req_sub", "#ec4899"),
+                    createStatCard("dash_stat_system_status", "ONLINE", "dash_stat_system_status_sub", "#10b981")
+            );
+        }
+
+        statsWrapper.getChildren().add(statsGrid);
+        mainContainer.getChildren().add(statsWrapper);
+    }
+
+    /**
+     * Buduje sekcję szybkich przycisków akcji, wywołując metodę setContent z instancji MainLayout.
+     */
+    private void createQuickActionsSection() {
+        VBox actionsWrapper = new VBox(15);
+
+        actionsTitleLabel = new Label(MockDataProvider.i18n("dash_actions_title"));
+        actionsTitleLabel.setFont(Font.font("System", FontWeight.BOLD, 18));
+        actionsTitleLabel.setTextFill(Color.web("#334155"));
+        actionsWrapper.getChildren().add(actionsTitleLabel);
+
+        FlowPane actionsGrid = new FlowPane(15, 15);
+
+        // Mapowanie przycisków bezpośrednio na wywołania setContent() z przekazaniem instancji widoków
+        if (role == UserRole.STUDENT) {
+            actionsGrid.getChildren().addAll(
+                    createActionButton("nav_grades", " Oceny", "#3b82f6", () -> mainLayout.setContent(new GradesView())),
+                    createActionButton("nav_schedule", " Plan zajęć", "#10b981", () -> mainLayout.setContent(new ScheduleView())),
+                    createActionButton("nav_applications", " Wnioski", "#8b5cf6", () -> mainLayout.setContent(new ApplicationsView())),
+                    createActionButton("nav_payments", " Płatności", "#ef4444", () -> mainLayout.setContent(new PaymentsView())),
+                    createActionButton("nav_messages", " Wiadomości", "#06b6d4", () -> mainLayout.setContent(new MessagesView())),
+                    createActionButton("nav_thesis", " Praca dyplomowa", "#f59e0b", () -> mainLayout.setContent(new ThesisView()))
+            );
+        } else if (role == UserRole.LECTURER) {
+            actionsGrid.getChildren().addAll(
+                    createActionButton("nav_my_courses", " Moje kursy", "#8b5cf6", () -> mainLayout.setContent(new LecturerCoursesView(mainLayout))),
+                    createActionButton("nav_add_grades", " Wystaw oceny", "#10b981", () -> mainLayout.setContent(new LecturerGradesView())),
+                    createActionButton("nav_messages", " Wiadomości", "#06b6d4", () -> mainLayout.setContent(new LecturerMessagesView()))
+            );
+        } else if (role == UserRole.ADMINISTRATOR) {
+            actionsGrid.getChildren().addAll(
+                    createActionButton("nav_manage_users", " Użytkownicy", "#2563eb", () -> mainLayout.setContent(new UserManagementView())),
+                    createActionButton("nav_manage_schedule", " Edycja planu", "#f59e0b", () -> mainLayout.setContent(new AdminScheduleView())),
+                    createActionButton("nav_system_requests", " Wnioski systemowe", "#ec4899", () -> mainLayout.setContent(new SystemRequestsView())),
+                    createActionButton("nav_employee_dir", " Pracownicy", "#64748b", () -> mainLayout.setContent(new EmployeeListView()))
+            );
+        }
+
+        actionsWrapper.getChildren().add(actionsGrid);
+        mainContainer.getChildren().add(actionsWrapper);
+    }
+
+    private VBox createStatCard(String titleKey, String value, String subKey, String accentColor) {
+        VBox card = new VBox(6);
+        card.setPadding(new Insets(18, 22, 18, 22));
+        card.setPrefWidth(260);
+        card.setStyle("-fx-background-color: white; -fx-background-radius: 12; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.04), 8, 0, 0, 4);");
+
+        Pane accentBar = new Pane();
+        accentBar.setPrefHeight(4);
+        accentBar.setPrefWidth(40);
+        accentBar.setMaxWidth(40);
+        accentBar.setStyle("-fx-background-color: " + accentColor + "; -fx-background-radius: 2;");
+
+        Label titleLbl = new Label(MockDataProvider.i18n(titleKey));
+        titleLbl.setFont(Font.font("System", FontWeight.SEMI_BOLD, 13));
+        titleLbl.setTextFill(Color.web("#64748b"));
+
+        Label valueLbl = new Label(value);
+        valueLbl.setFont(Font.font("System", FontWeight.BOLD, 24));
+        valueLbl.setTextFill(Color.web("#0f172a"));
+
+        Label subLbl = new Label(MockDataProvider.i18n(subKey));
+        subLbl.setFont(Font.font("System", 11));
+        subLbl.setTextFill(Color.web("#94a3b8"));
+
+        card.getChildren().addAll(accentBar, titleLbl, valueLbl, subLbl);
+        card.setUserData(new String[]{titleKey, subKey});
 
         return card;
     }
 
+    private Button createActionButton(String textKey, String fallbackText, String colorHex, Runnable action) {
+        Button btn = new Button(MockDataProvider.i18n(textKey));
+        if (btn.getText().equals(textKey) || btn.getText().isEmpty()) {
+            btn.setText(fallbackText);
+        }
 
-    private VBox createStatCard(String title, String value, String sub, String color) {
-        VBox card = new VBox(5);
-        card.setPadding(new Insets(15));
-        card.setPrefWidth(200);
-        card.setStyle("-fx-background-color: white; -fx-background-radius: 12; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.05), 10, 0, 0, 4);");
-        Label t = new Label(title); t.setTextFill(Color.GRAY);
-        Label v = new Label(value); v.setFont(Font.font("System", FontWeight.BOLD, 22));
-        card.getChildren().addAll(t, v);
-        return card;
+        btn.setFont(Font.font("System", FontWeight.SEMI_BOLD, 14));
+        btn.setPrefSize(200, 50);
+        btn.setStyle("-fx-background-color: white; -fx-text-fill: " + colorHex + "; -fx-border-color: " + colorHex + "; -fx-border-width: 1.5; -fx-border-radius: 8; -fx-background-radius: 8; -fx-cursor: hand;");
+
+        btn.setOnMouseEntered(e -> btn.setStyle("-fx-background-color: " + colorHex + "; -fx-text-fill: white; -fx-border-color: " + colorHex + "; -fx-border-width: 1.5; -fx-border-radius: 8; -fx-background-radius: 8; -fx-cursor: hand;"));
+        btn.setOnMouseExited(e -> btn.setStyle("-fx-background-color: white; -fx-text-fill: " + colorHex + "; -fx-border-color: " + colorHex + "; -fx-border-width: 1.5; -fx-border-radius: 8; -fx-background-radius: 8; -fx-cursor: hand;"));
+
+        btn.setOnAction(e -> action.run());
+        btn.setUserData(textKey);
+
+        return btn;
     }
 
-    private VBox createContentCard(String title) {
-        VBox box = new VBox(10);
-        box.setPadding(new Insets(20));
-        box.setStyle("-fx-background-color: white; -fx-background-radius: 12; -fx-border-color: #e2e8f0; -fx-border-radius: 12;");
-        Label head = new Label(title);
-        head.setFont(Font.font("System", FontWeight.BOLD, 16));
-        box.getChildren().add(head);
-        return box;
+    public void translate() {
+        // 1. Natychmiastowe tłumaczenie głównych etykiet tekstowych nagłówka
+        welcomeLabel.setText(MockDataProvider.i18n("dash_welcome") + ", Dmytro Lytvyn!");
+        infoLabel.setText(MockDataProvider.i18n("dash_info_sub"));
+        statsTitleLabel.setText(MockDataProvider.i18n("dash_stats_title"));
+        actionsTitleLabel.setText(MockDataProvider.i18n("dash_actions_title"));
+
+        // 2. Bezpieczne przeszukiwanie kontenera głównego w poszukiwaniu siatek FlowPane
+        for (javafx.scene.Node node : mainContainer.getChildren()) {
+            if (node instanceof VBox) {
+                VBox wrapperBox = (VBox) node;
+
+                // Przeszukujemy elementy wewnątrz wrappera (np. sekcji statystyk lub szybkich akcji)
+                for (javafx.scene.Node subNode : wrapperBox.getChildren()) {
+                    if (subNode instanceof FlowPane) {
+                        // Wywołanie tłumaczenia dla grupy elementów wewnątrz siatki (FlowPane)
+                        translateGroup((FlowPane) subNode);
+                    }
+                }
+            }
+        }
     }
 
-    private void addAnnouncement(VBox container, String title, String date, String text, String type) {
-        container.getChildren().add(new Label(title + " (" + date + ")"));
-    }
-
-    private void addScheduleItem(VBox container, String time, String subject, String room, String teacher) {
-        container.getChildren().add(new Label(time + " - " + subject));
+    private void translateGroup(FlowPane pane) {
+        for (javafx.scene.Node node : pane.getChildren()) {
+            if (node instanceof VBox && node.getUserData() instanceof String[]) {
+                String[] keys = (String[]) node.getUserData();
+                VBox card = (VBox) node;
+                int labelIndex = 0;
+                for (javafx.scene.Node inner : card.getChildren()) {
+                    if (inner instanceof Label) {
+                        Label label = (Label) inner;
+                        if (labelIndex == 0) {
+                            label.setText(MockDataProvider.i18n(keys[0]));
+                            labelIndex++;
+                        } else if (labelIndex == 1 && card.getChildren().size() == 4) {
+                            labelIndex++;
+                        } else {
+                            label.setText(MockDataProvider.i18n(keys[1]));
+                        }
+                    }
+                }
+            } else if (node instanceof Button && node.getUserData() instanceof String) {
+                Button btn = (Button) node;
+                btn.setText(MockDataProvider.i18n((String) node.getUserData()));
+            }
+        }
     }
 }

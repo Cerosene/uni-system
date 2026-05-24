@@ -12,155 +12,158 @@ import pl.usos2.server.model.enumtype.Semester;
 import pl.usos2.server.model.request.Message;
 import pl.usos2.server.service.message.MessageService;
 import pl.usos2.client.view.lecturer.LecturerMessagesView;
+import pl.usos2.client.util.MockDataProvider;
 
 import java.util.List;
 import java.util.stream.Collectors;
 
+/**
+ * Widok obsługi wiadomości studenckich.
+ * Umożliwia wysyłanie wiadomości do wykładowców oraz przeglądanie skrzynki odbiorczej.
+ * Obsługuje dynamiczną zmianę języka (i18n) i posiada komentarze po polsku.
+ */
 public class MessagesView extends VBox {
 
-    // Obecny student z uprawnieniami
     private final Student currentStudent;
 
-    private ListView<Message> inboxListView;
-    private TextArea messageContentView;
+    // Komponenty UI wymagające lokalizacji
+    private final Label titleLabel;
+    private final Label tabNewMessageLabel;
+    private final Label selectLecturerLabel;
+    private final ComboBox<Lecturer> lecturerComboBox;
+    private final Label messageContentLabel;
+    private final TextArea messageArea;
+    private final Button sendBtn;
+
+    private final Label tabInboxLabel;
+    private final Button refreshBtn;
+    private final Label receivedMessagesLabel;
+    private final ListView<Message> inboxListView;
+    private final Label previewContentLabel;
+    private final TextArea messageContentView;
 
     public MessagesView() {
         setPadding(new Insets(30));
         setSpacing(20);
         setStyle("-fx-background-color: #f8fafc;");
 
+        // Dane demonstracyjne bieżącego studenta
         currentStudent = new Student(1003L, "Dmytro", "Lytvyn", "dmytro@uni.pl", "pass123", "320103", "Informatyka", Semester.THIRD);
 
-        Label title = new Label("Wiadomości");
-        title.setFont(Font.font("System", FontWeight.BOLD, 24));
+        // Główny nagłówek ekranu
+        titleLabel = new Label();
+        titleLabel.setFont(Font.font("System", FontWeight.BOLD, 24));
 
-        // Główny kontener zakładek
         TabPane tabPane = new TabPane();
-        tabPane.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
-        VBox.setVgrow(tabPane, Priority.ALWAYS);
+        tabPane.setStyle("-fx-background-color: transparent;");
 
-        // --- ZAKŁADKA 1: WYSYŁANIE WIADOMOŚCI ---
-        Tab sendTab = new Tab("Wyślij wiadomość");
-        VBox sendForm = createSendForm();
-        sendTab.setContent(sendForm);
+        // --- ZAKŁADKA 1: NOWA WIADOMOŚĆ ---
+        Tab writeTab = new Tab();
+        writeTab.setClosable(false);
+        tabNewMessageLabel = new Label();
+        writeTab.setGraphic(tabNewMessageLabel);
 
-        // --- ZAKŁADKA 2: WIADOMOŚCI PRZYCHODZĄCE ---
-        Tab inboxTab = new Tab("Skrzynka odbiorcza");
-        VBox inboxLayout = createInboxLayout();
-        inboxTab.setContent(inboxLayout);
+        VBox writeLayout = new VBox(15);
+        writeLayout.setPadding(new Insets(20));
+        writeLayout.setStyle("-fx-background-color: white; -fx-border-color: #e2e8f0; -fx-border-radius: 8; -fx-background-radius: 8;");
 
-        // Odświeżamy listę wiadomości przychodzących po przejściu do zakładki „Wiadomości przychodzące”
-        inboxTab.setOnSelectionChanged(e -> {
-            if (inboxTab.isSelected()) {
-                refreshStudentInbox();
+        selectLecturerLabel = new Label();
+        selectLecturerLabel.setStyle("-fx-font-weight: bold;");
+
+        lecturerComboBox = new ComboBox<>();
+        lecturerComboBox.setMaxWidth(Double.MAX_VALUE);
+
+        // Dane testowe wykładowców
+        lecturerComboBox.getItems().addAll(
+                new Lecturer(2L, "Tomasz", "Nowak", "t.nowak@uni.pl", "", "EMP201", "Dr."),
+                new Lecturer(5L, "Maria", "Kowalska", "m.kowalska@uni.pl", "", "EMP202", "Prof.")
+        );
+
+        // --- POPRAWKA DLA STRINGCONVERTER Z UŻYCIEM GETACADEMICTITLE() ---
+        lecturerComboBox.setConverter(new StringConverter<Lecturer>() {
+            @Override
+            public String toString(Lecturer l) {
+                // Jeśli obiekt jest nullem, zwracamy pusty ciąg znaków
+                if (l == null) {
+                    return "";
+                }
+
+                // Pobieramy tytuł naukowy z poprawnej metody getAcademicTitle()
+                String title = l.getAcademicTitle() != null ? l.getAcademicTitle() : "";
+
+                // Łączymy tytuł naukowy, imię oraz nazwisko wykładowcy w jeden czytelny tekst
+                return (title + " " + l.getFirstName() + " " + l.getLastName()).trim();
+            }
+
+            @Override
+            public Lecturer fromString(String string) {
+                // Mapowanie odwrotne ze String na obiekt nie jest używane w tym widoku
+                return null;
             }
         });
 
-        tabPane.getTabs().addAll(inboxTab, sendTab);
+        messageContentLabel = new Label();
+        messageContentLabel.setStyle("-fx-font-weight: bold;");
 
-        getChildren().addAll(title, tabPane);
-    }
+        messageArea = new TextArea();
+        messageArea.setPrefHeight(150);
 
-    // Tworzenie formularza wysyłania wiadomości (zakładka 1)
-    private VBox createSendForm() {
-        VBox form = new VBox(15);
-        form.setPadding(new Insets(20));
-        form.setStyle("-fx-background-color: white; -fx-border-color: #cbd5e1; -fx-border-radius: 8; -fx-background-radius: 8;");
+        sendBtn = new Button();
+        sendBtn.setStyle("-fx-background-color: #2563eb; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 10 20; -fx-background-radius: 6;");
 
-        ComboBox<Lecturer> lecturerCombo = new ComboBox<>();
-        Lecturer drNowak = new Lecturer(2L, "Tomasz", "Nowak", "lecturer@uni.pl", "password123", "EMP201", "Dr.");
-        Lecturer profKowalski = new Lecturer(3L, "Jan", "Kowalski", "j.kowalski@uni.pl", "password123", "EMP202", "Prof.");
-
-        lecturerCombo.getItems().addAll(drNowak, profKowalski);
-        lecturerCombo.setPromptText("Wybierz adresata (Prowadzącego)");
-        lecturerCombo.setMaxWidth(Double.MAX_VALUE);
-
-        lecturerCombo.setConverter(new StringConverter<>() {
-            @Override
-            public String toString(Lecturer lecturer) {
-                if (lecturer == null) return "";
-                return lecturer.getAcademicTitle() + " " + lecturer.getLastName() + " (" + lecturer.getEmail() + ")";
-            }
-            @Override
-            public Lecturer fromString(String string) { return null; }
-        });
-
-        TextField subjectField = new TextField();
-        subjectField.setPromptText("Temat wiadomości");
-
-        TextArea messageArea = new TextArea();
-        messageArea.setPromptText("Treść wiadomości...");
-        messageArea.setPrefHeight(200);
-
-        Button sendBtn = new Button("Wyślij wiadomość");
-        sendBtn.setStyle("-fx-background-color: #3b82f6; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand;");
-        sendBtn.setMaxWidth(Double.MAX_VALUE);
-
+        // --- POPRAWKA METODY WYSYŁANIA WIADOMOŚCI ---
         sendBtn.setOnAction(e -> {
-            Lecturer selectedLecturer = lecturerCombo.getValue();
-            String subject = subjectField.getText().trim();
-            String content = messageArea.getText().trim();
+            Lecturer selected = lecturerComboBox.getValue();
+            String text = messageArea.getText();
 
-            if (selectedLecturer == null || subject.isEmpty() || content.isEmpty()) {
-                showAlert(Alert.AlertType.WARNING, "Uwaga", "Wszystkie pola muszą być wypełnione!");
+            if (selected == null || text.trim().isEmpty()) {
+                showAlert(Alert.AlertType.WARNING, MockDataProvider.i18n("alert_warn_title"), MockDataProvider.i18n("fill_all_fields_error"));
                 return;
             }
 
-            LecturerMessagesView.getSharedMessageService().sendMessage(
-                    currentStudent,
-                    selectedLecturer,
-                    subject,
-                    content
-            );
+            MessageService service = LecturerMessagesView.getSharedMessageService();
 
-            subjectField.clear();
+            // Definiujemy temat wiadomości (wymagany czwarty parametr w modelu serwerowym)
+            String subject = "Wiadomość od: " + currentStudent.getFirstName() + " " + currentStudent.getLastName();
+
+            // Przekazujemy pełne 4 parametry: nadawca, odbiorca, temat, treść
+            service.sendMessage(currentStudent, selected, subject, text);
+
+            showAlert(Alert.AlertType.INFORMATION, MockDataProvider.i18n("alert_info_title"), MockDataProvider.i18n("message_sent_success"));
             messageArea.clear();
-            lecturerCombo.setValue(null);
-
-            showAlert(Alert.AlertType.INFORMATION, "Sukces", "Wiadomość została wysłana do prowadzącego!");
+            lecturerComboBox.setValue(null);
         });
 
-        form.getChildren().addAll(new Label("Nowa wiadomość:"), lecturerCombo, subjectField, messageArea, sendBtn);
-        return form;
-    }
+        writeLayout.getChildren().addAll(selectLecturerLabel, lecturerComboBox, messageContentLabel, messageArea, sendBtn);
+        writeTab.setContent(writeLayout);
 
-    // Tworzenie szablonu dla wiadomości przychodzących (zakładka 2)
-    private VBox createInboxLayout() {
-        VBox layout = new VBox(15);
-        layout.setPadding(new Insets(20));
-        layout.setStyle("-fx-background-color: white; -fx-border-color: #cbd5e1; -fx-border-radius: 8; -fx-background-radius: 8;");
+        // --- ZAKŁADKA 2: SKRZYNKA ODBIORCZA ---
+        Tab inboxTab = new Tab();
+        inboxTab.setClosable(false);
+        tabInboxLabel = new Label();
+        inboxTab.setGraphic(tabInboxLabel);
 
-        Button refreshBtn = new Button("🔄 Odśwież");
-        refreshBtn.setStyle("-fx-background-color: #64748b; -fx-text-fill: white; -fx-cursor: hand;");
+        VBox inboxLayout = new VBox(15);
+        inboxLayout.setPadding(new Insets(20));
+        inboxLayout.setStyle("-fx-background-color: white; -fx-border-color: #e2e8f0; -fx-border-radius: 8; -fx-background-radius: 8;");
+
+        refreshBtn = new Button();
+        refreshBtn.setStyle("-fx-background-color: #10b981; -fx-text-fill: white; -fx-font-weight: bold;");
         refreshBtn.setOnAction(e -> refreshStudentInbox());
 
+        receivedMessagesLabel = new Label();
+        receivedMessagesLabel.setStyle("-fx-font-weight: bold;");
+
         inboxListView = new ListView<>();
-        inboxListView.setPrefHeight(180);
+        inboxListView.setPrefHeight(150);
 
-        // Sformatowanie komórek tak, aby było widoczne, od kogo pochodzi wiadomość (od wykładowcy)
-        inboxListView.setCellFactory(param -> new ListCell<>() {
-            @Override
-            protected void updateItem(Message msg, boolean empty) {
-                super.updateItem(msg, empty);
-                if (empty || msg == null) {
-                    setText(null);
-                } else {
-                    String senderName = msg.getSender().getFirstName() + " " + msg.getSender().getLastName();
-
-                    if (msg.getSender() instanceof Lecturer) {
-                        senderName = ((Lecturer) msg.getSender()).getAcademicTitle() + " " + msg.getSender().getLastName();
-                    }
-                    setText("Od: " + senderName + " | Temat: " + msg.getSubject());
-                }
-            }
-        });
+        previewContentLabel = new Label();
+        previewContentLabel.setStyle("-fx-font-weight: bold;");
 
         messageContentView = new TextArea();
         messageContentView.setEditable(false);
-        messageContentView.setPromptText("Treść wiadomości pojawi się tutaj po wybraniu jej z listy...");
-        messageContentView.setPrefHeight(150);
+        messageContentView.setPrefHeight(120);
 
-        // Słuchacz wyboru wiadomości z listy
         inboxListView.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
             if (newVal != null) {
                 messageContentView.setText(newVal.getContent());
@@ -169,16 +172,23 @@ public class MessagesView extends VBox {
             }
         });
 
-        layout.getChildren().addAll(
-                refreshBtn,
-                new Label("Otrzymane wiadomości:"), inboxListView,
-                new Label("Treść wiadomości:"), messageContentView
-        );
+        inboxLayout.getChildren().addAll(refreshBtn, receivedMessagesLabel, inboxListView, previewContentLabel, messageContentView);
+        inboxTab.setContent(inboxLayout);
 
-        return layout;
+        tabPane.getTabs().addAll(writeTab, inboxTab);
+        getChildren().addAll(titleLabel, tabPane);
+
+        // Pierwsza inicjalizacja tekstów i ładowanie danych
+        refreshLocalization();
+        refreshStudentInbox();
+
+        // Rejestracja słuchacza zmian lokalizacji (i18n)
+        MockDataProvider.currentLocaleProperty().addListener((obs, oldLocale, newLocale) -> refreshLocalization());
     }
 
-    // Metoda filtrowania wiadomości, w której odbiorcą (Recipient) jest obecny student
+    /**
+     * Filtruje i odświeża listę wiadomości odebranych przez aktualnego studenta.
+     */
     private void refreshStudentInbox() {
         inboxListView.getItems().clear();
         messageContentView.clear();
@@ -186,7 +196,6 @@ public class MessagesView extends VBox {
         MessageService service = LecturerMessagesView.getSharedMessageService();
         List<Message> allMessages = service.getAllMessages();
 
-        // Zostawiamy tylko te wiadomości, które zostały napisane do TEGO studenta
         List<Message> studentInbox = allMessages.stream()
                 .filter(m -> m.getRecipient() != null && m.getRecipient().getId().equals(currentStudent.getId()))
                 .collect(Collectors.toList());
@@ -194,11 +203,32 @@ public class MessagesView extends VBox {
         inboxListView.getItems().addAll(studentInbox);
     }
 
+    /**
+     * Pomocnicza metoda wyświetlająca okna komunikatów.
+     */
     private void showAlert(Alert.AlertType type, String title, String content) {
         Alert alert = new Alert(type);
         alert.setTitle(title);
         alert.setHeaderText(null);
         alert.setContentText(content);
         alert.showAndWait();
+    }
+
+    /**
+     * Aktualizuje teksty na ekranie po zmianie języka aplikacji.
+     */
+    private void refreshLocalization() {
+        titleLabel.setText(MockDataProvider.i18n("messages_title_main"));
+        tabNewMessageLabel.setText(MockDataProvider.i18n("tab_new_message"));
+        selectLecturerLabel.setText(MockDataProvider.i18n("select_lecturer_label"));
+        lecturerComboBox.setPromptText(MockDataProvider.i18n("select_lecturer_prompt"));
+        messageContentLabel.setText(MockDataProvider.i18n("message_content_label"));
+        messageArea.setPromptText(MockDataProvider.i18n("message_area_prompt"));
+        sendBtn.setText(MockDataProvider.i18n("send_message_btn"));
+
+        tabInboxLabel.setText(MockDataProvider.i18n("tab_inbox"));
+        refreshBtn.setText(MockDataProvider.i18n("refresh_btn"));
+        receivedMessagesLabel.setText(MockDataProvider.i18n("received_messages_label"));
+        previewContentLabel.setText(MockDataProvider.i18n("preview_content_label"));
     }
 }
