@@ -129,7 +129,7 @@ public class DashboardView extends ScrollPane {
                     createActionButton("nav_applications", " Wnioski", "#8b5cf6", () -> mainLayout.setContent(new ApplicationsView())),
                     createActionButton("nav_payments", " Płatności", "#ef4444", () -> mainLayout.setContent(new PaymentsView())),
                     createActionButton("nav_messages", " Wiadomości", "#06b6d4", () -> mainLayout.setContent(new MessagesView())),
-                    createActionButton("nav_thesis", " Praca dyplomowa", "#f59e0b", () -> mainLayout.setContent(new ThesisView()))
+                    createActionButton("nav_thesis", " Praca dyplomowa", "#f59e0b", () -> mainLayout.setContent(new TicketsView()))
             );
         } else if (role == UserRole.LECTURER) {
             actionsGrid.getChildren().addAll(

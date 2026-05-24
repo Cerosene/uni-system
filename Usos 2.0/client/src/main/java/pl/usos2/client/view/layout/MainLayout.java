@@ -109,7 +109,7 @@ public class MainLayout extends BorderPane {
                 createNavButton("messages", () -> setContent(new MessagesView())),
                 createNavButton("requests", () -> setContent(new ApplicationsView())),
                 createNavButton("payments", () -> setContent(new PaymentsView())),
-                createNavButton("tickets", () -> setContent(new ThesisView())) // Tymczasowo podpięte pod istniejący ThesisView
+                createNavButton("tickets", () -> setContent(new TicketsView())) // Tymczasowo podpięte pod istniejący ThesisView
         );
     }
 
