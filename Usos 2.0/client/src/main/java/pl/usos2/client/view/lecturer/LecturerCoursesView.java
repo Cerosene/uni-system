@@ -1,13 +1,22 @@
 package pl.usos2.client.view.lecturer;
 
 import javafx.geometry.Insets;
-import javafx.scene.control.*;
-import javafx.scene.layout.*;
+import javafx.scene.control.Label;
+import javafx.scene.control.ScrollPane;
+import javafx.scene.layout.FlowPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
-import pl.usos2.client.view.layout.MainLayout;
 import pl.usos2.client.util.MockDataProvider;
+import pl.usos2.server.model.academic.Course;
+import pl.usos2.server.model.user.Lecturer;
+import pl.usos2.server.model.user.User;
+import pl.usos2.server.service.course.CourseService;
+
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Widok zarządzania kursami prowadzonymi przez wykładowcę.
@@ -15,102 +24,86 @@ import pl.usos2.client.util.MockDataProvider;
  */
 public class LecturerCoursesView extends ScrollPane {
 
-    private final MainLayout mainLayout;
     private final Label titleLabel;
     private final FlowPane coursesGrid;
 
-    public LecturerCoursesView(MainLayout mainLayout) {
-        this.mainLayout = mainLayout;
+    public LecturerCoursesView(User currentUser, CourseService courseService) {
         setFitToWidth(true);
         setStyle("-fx-background-color: #f8fafc; -fx-background: #f8fafc;");
+
+        Lecturer lecturer = (Lecturer) currentUser;
+        List<Course> courses = courseService.getAllCourses().stream()
+                .filter(course -> course.getLecturer() != null && course.getLecturer().getId().equals(lecturer.getId()))
+                .collect(Collectors.toList());
 
         VBox container = new VBox(25);
         container.setPadding(new Insets(30));
 
-        // Główny tytuł ekranu kursów
         titleLabel = new Label();
         titleLabel.setFont(Font.font("System", FontWeight.BOLD, 26));
 
         coursesGrid = new FlowPane(20, 20);
+        coursesGrid.setPrefWidth(860);
 
-        // Generowanie struktury powiązanej z kluczami tłumaczeń i18n
-        // Parametry: kod, klucz i18n nazwy, klucz i18n typu, liczba studentów
-        coursesGrid.getChildren().addAll(
-                createCourseCard("CS301", "subject_algorithms", "course_type_mix", 120),
-                createCourseCard("CS302", "subject_databases", "course_type_lab", 45),
-                createCourseCard("CS405", "subject_networks", "course_type_seminar", 20)
-        );
+        if (courses.isEmpty()) {
+            Label emptyLabel = new Label(MockDataProvider.i18n("lecturer_courses_empty"));
+            emptyLabel.setFont(Font.font("System", 16));
+            emptyLabel.setTextFill(Color.web("#475569"));
+            coursesGrid.getChildren().add(emptyLabel);
+        } else {
+            courses.forEach(course -> coursesGrid.getChildren().add(createCourseCard(course)));
+        }
 
         container.getChildren().addAll(titleLabel, coursesGrid);
         setContent(container);
 
-        // Pierwsze ładowanie tekstów językowych
         refreshLocalization();
-
-        // Nasłuchiwanie globalnej zmiany języka w aplikacji
         MockDataProvider.currentLocaleProperty().addListener((obs, oldLocale, newLocale) -> refreshLocalization());
     }
 
-    /**
-     * Buduje komponent karty pojedynczego przedmiotu akademickiego.
-     */
-    private VBox createCourseCard(String code, String nameKey, String typeKey, int studentCount) {
+    private VBox createCourseCard(Course course) {
         VBox card = new VBox(12);
         card.setPadding(new Insets(20));
         card.setPrefWidth(280);
         card.setStyle("-fx-background-color: white; -fx-background-radius: 12; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.05), 10, 0, 0, 4);");
+        card.setUserData(new CourseMetadata(course.getCode(), course.getName(), course.getEcts(), course.getLecturer().getFullName()));
 
-        // Zapisujemy klucze językowe w metadanych kontenera na potrzeby odświeżania na żywo
-        card.setUserData(new Object[]{nameKey, typeKey, studentCount});
-
-        Label codeLbl = new Label(code);
+        Label codeLbl = new Label(course.getCode());
         codeLbl.setTextFill(Color.web("#3b82f6"));
         codeLbl.setFont(Font.font("System", FontWeight.BOLD, 12));
 
-        Label nameLbl = new Label();
+        Label nameLbl = new Label(course.getName());
         nameLbl.setFont(Font.font("System", FontWeight.BOLD, 16));
         nameLbl.setWrapText(true);
 
         HBox infoRow = new HBox(10);
-        Label typeLbl = new Label();
-        typeLbl.setStyle("-fx-background-color: #f1f5f9; -fx-padding: 3 8; -fx-background-radius: 5; -fx-font-size: 12;");
+        Label lecturerLbl = new Label(course.getLecturer().getFullName());
+        lecturerLbl.setStyle("-fx-background-color: #f1f5f9; -fx-padding: 3 8; -fx-background-radius: 5; -fx-font-size: 12;");
 
-        Label studentsLbl = new Label();
-        studentsLbl.setStyle("-fx-background-color: #f1f5f9; -fx-padding: 3 8; -fx-background-radius: 5; -fx-font-size: 12;");
+        Label ectsLbl = new Label(course.getEcts() + " ECTS");
+        ectsLbl.setStyle("-fx-background-color: #f1f5f9; -fx-padding: 3 8; -fx-background-radius: 5; -fx-font-size: 12;");
 
-        infoRow.getChildren().addAll(typeLbl, studentsLbl);
+        infoRow.getChildren().addAll(lecturerLbl, ectsLbl);
         card.getChildren().addAll(codeLbl, nameLbl, infoRow);
 
         return card;
     }
 
-    /**
-     * Wywoływane automatycznie przy zmianie języka systemu w celu tłumaczenia elementów UI.
-     */
     private void refreshLocalization() {
         titleLabel.setText(MockDataProvider.i18n("lecturer_courses_title"));
+    }
 
-        // Przechodzimy przez wszystkie wygenerowane karty kursów
-        for (javafx.scene.Node node : coursesGrid.getChildren()) {
-            if (node instanceof VBox && node.getUserData() instanceof Object[]) {
-                VBox card = (VBox) node;
-                Object[] data = (Object[]) card.getUserData();
+    private static class CourseMetadata {
+        final String courseCode;
+        final String courseName;
+        final int ects;
+        final String lecturerName;
 
-                String nameKey = (String) data[0];
-                String typeKey = (String) data[1];
-                int studentCount = (Integer) data[2];
-
-                // Dynamiczna aktualizacja napisów wewnątrz karty
-                Label nameLbl = (Label) card.getChildren().get(1);
-                nameLbl.setText(MockDataProvider.i18n(nameKey));
-
-                HBox infoRow = (HBox) card.getChildren().get(2);
-                Label typeLbl = (Label) infoRow.getChildren().get(0);
-                Label studentsLbl = (Label) infoRow.getChildren().get(1);
-
-                typeLbl.setText(MockDataProvider.i18n(typeKey));
-                studentsLbl.setText(studentCount + " " + MockDataProvider.i18n("course_students_suffix"));
-            }
+        CourseMetadata(String courseCode, String courseName, int ects, String lecturerName) {
+            this.courseCode = courseCode;
+            this.courseName = courseName;
+            this.ects = ects;
+            this.lecturerName = lecturerName;
         }
     }
 }

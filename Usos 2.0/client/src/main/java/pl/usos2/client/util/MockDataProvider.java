@@ -287,6 +287,32 @@ public class MockDataProvider {
             case "alert_success_title": return isEn ? "Success" : "Sukces";
             case "alert_success_header": return isEn ? "Application Submitted" : "Wniosek został zarejestrowany";
             case "alert_success_content": return isEn ? "Your application has been successfully added to the system." : "Twój wniosek został pomyślnie dodany do systemu i oczekuje na rozpatrzenie.";
+            
+            // --- FORMULARZE I POLA TEKSTOWE (FORM FIELDS) ---
+            case "label_first_name": return isEn ? "First Name" : "Imię";
+            case "label_last_name": return isEn ? "Last Name" : "Nazwisko";
+            case "label_email": return isEn ? "Email" : "E-mail";
+            case "label_password": return isEn ? "Password" : "Hasło";
+            case "alert_error_title": return isEn ? "Error" : "Błąd";
+            
+            // --- ROLA UŻYTKOWNIKA (USER ROLES) ---
+            case "role_student": return isEn ? "Student" : "Student";
+            case "role_lecturer": return isEn ? "Lecturer" : "Wykładowca";
+            case "role_administrator": return isEn ? "Administrator" : "Administrator";
+            
+            // --- STATUS UŻYTKOWNIKA (USER STATUS) ---
+            case "status_active": return isEn ? "Active" : "Aktywne";
+            case "status_inactive": return isEn ? "Inactive" : "Nieaktywne";
+            
+            // --- REGUŁ I DODATKOWE KLUCZE ---
+            case "grades_empty_message": return isEn ? "No grades available" : "Brak ocen do wyświetlenia";
+            case "lecturer_courses_empty": return isEn ? "No courses assigned" : "Brak przypisanych kursów";
+            case "col_request_date": return isEn ? "Submission Date" : "Data złożenia";
+            case "course_students_count": return isEn ? "Students" : "Studentów";
+            case "no_courses_message": return isEn ? "No courses available" : "Brak dostępnych kursów";
+            case "no_messages_message": return isEn ? "No messages available" : "Brak wiadomości";
+            case "no_groups_message": return isEn ? "No groups available" : "Brak dostępnych grup";
+            
             default: return key;
         }
     }

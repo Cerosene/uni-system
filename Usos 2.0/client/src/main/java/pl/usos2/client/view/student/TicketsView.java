@@ -8,6 +8,9 @@ import javafx.scene.layout.*;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import pl.usos2.client.util.MockDataProvider;
+import pl.usos2.server.model.service.ServiceTicket;
+import pl.usos2.server.model.user.User;
+import pl.usos2.server.service.maintenance.ServiceTicketService;
 
 /**
  * Widok obsługujący zgłaszanie problemów technicznych i serwisowych przez studenta.
@@ -15,6 +18,9 @@ import pl.usos2.client.util.MockDataProvider;
  * oraz listę dotychczasowych zgłoszeń powiązaną z MockDataProvider.
  */
 public class TicketsView extends VBox {
+
+    private final User currentUser;
+    private final ServiceTicketService serviceTicketService;
 
     // Komponenty UI wymagające dynamicznej aktualizacji języka (i18n)
     private final Label titleLabel;
@@ -26,12 +32,15 @@ public class TicketsView extends VBox {
     private final Label historyTitleLabel;
 
     // Tabela wyświetlająca historię zgłoszeń serwisowych
-    private final TableView<MockDataProvider.ServiceTicket> ticketsTable;
+    private final TableView<ServiceTicket> ticketsTable;
 
-    public TicketsView() {
+    public TicketsView(User currentUser, ServiceTicketService serviceTicketService) {
         setPadding(new Insets(30));
         setSpacing(20);
         setStyle("-fx-background-color: #f8fafc;");
+
+        this.currentUser = currentUser;
+        this.serviceTicketService = serviceTicketService;
 
         // Główny nagłówek ekranu zgłoszeń
         titleLabel = new Label();
@@ -87,24 +96,20 @@ public class TicketsView extends VBox {
         ticketsTable.setPrefHeight(220);
         ticketsTable.setStyle("-fx-background-color: white; -fx-background-radius: 12; -fx-border-radius: 12; -fx-border-color: #cbd5e1;");
 
-        // Konfiguracja kolumn tabeli na podstawie podklasy ServiceTicket z MockDataProvider
-        TableColumn<MockDataProvider.ServiceTicket, String> titleCol = new TableColumn<>();
+        TableColumn<ServiceTicket, String> titleCol = new TableColumn<>();
         titleCol.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().getTitle()));
 
-        TableColumn<MockDataProvider.ServiceTicket, String> catCol = new TableColumn<>();
-        catCol.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().getCategory()));
+        TableColumn<ServiceTicket, String> catCol = new TableColumn<>();
+        catCol.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().getDescription()));
 
-        TableColumn<MockDataProvider.ServiceTicket, String> descCol = new TableColumn<>();
+        TableColumn<ServiceTicket, String> descCol = new TableColumn<>();
         descCol.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().getDescription()));
 
-        TableColumn<MockDataProvider.ServiceTicket, String> statusCol = new TableColumn<>();
-        statusCol.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().getStatus()));
+        TableColumn<ServiceTicket, String> statusCol = new TableColumn<>();
+        statusCol.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().getStatus().toString()));
 
-        // Dodajemy tylko potrzebne kolumny (bez priorytetu)
         ticketsTable.getColumns().addAll(titleCol, catCol, descCol, statusCol);
-
-        // Podpięcie reaktywnej listy zgłoszeń z centralnego dostawcy danych
-        ticketsTable.setItems(MockDataProvider.tickets);
+        ticketsTable.setItems(FXCollections.observableArrayList(serviceTicketService.getTicketsByReporter(currentUser)));
 
         getChildren().addAll(titleLabel, formContainer, historyTitleLabel, ticketsTable);
 
@@ -131,26 +136,12 @@ public class TicketsView extends VBox {
             return;
         }
 
-        // Domyślna wartość dla ComboBoxa kategorii, jeśli użytkownik jej nie wybrał
         String finalCategory = (category != null) ? category : "Inne";
+        String fullDescription = "[Kategoria: " + finalCategory + "] " + descriptionText.trim();
 
-        // Generowanie nowego unikalnego ID zgłoszenia
-        long newId = MockDataProvider.tickets.size() + 1L;
+        serviceTicketService.createTicket(currentUser, titleText.trim(), fullDescription);
+        ticketsTable.setItems(FXCollections.observableArrayList(serviceTicketService.getTicketsByReporter(currentUser)));
 
-        // Utworzenie nowej instancji zgłoszenia serwisowego (przekazujemy "Średni" na sztywno do modelu, jeśli to wymagane przez konstruktor)
-        MockDataProvider.ServiceTicket newTicket = new MockDataProvider.ServiceTicket(
-                newId,
-                titleText.trim(),
-                finalCategory,
-                descriptionText.trim(),
-                "Średni",
-                "Nowy"
-        );
-
-        // Dodanie do globalnej listy – tabela automatycznie odświeży swój widok
-        MockDataProvider.tickets.add(newTicket);
-
-        // Czyszczenie pól formularza po udanej operacji
         titleField.clear();
         categoryCombo.setValue(null);
         descriptionArea.clear();

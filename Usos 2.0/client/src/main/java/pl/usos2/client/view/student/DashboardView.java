@@ -62,7 +62,7 @@ public class DashboardView extends ScrollPane {
         headerBox.setPadding(new Insets(20));
         headerBox.setStyle("-fx-background-color: white; -fx-background-radius: 16; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.03), 10, 0, 0, 2);");
 
-        welcomeLabel = new Label(MockDataProvider.i18n("dash_welcome") + ", Dmytro Lytvyn!");
+        welcomeLabel = new Label(MockDataProvider.i18n("dash_welcome") + ", " + mainLayout.getCurrentUser().getFullName() + "!");
         welcomeLabel.setFont(Font.font("System", FontWeight.BOLD, 26));
         welcomeLabel.setTextFill(Color.web("#1e293b"));
 
@@ -124,25 +124,25 @@ public class DashboardView extends ScrollPane {
         // Mapowanie przycisków bezpośrednio na wywołania setContent() z przekazaniem instancji widoków
         if (role == UserRole.STUDENT) {
             actionsGrid.getChildren().addAll(
-                    createActionButton("nav_grades", " Oceny", "#3b82f6", () -> mainLayout.setContent(new GradesView())),
+                    createActionButton("nav_grades", " Oceny", "#3b82f6", () -> mainLayout.setContent(new GradesView(mainLayout.getCurrentUser(), mainLayout.getContext().getGradeService()))),
                     createActionButton("nav_schedule", " Plan zajęć", "#10b981", () -> mainLayout.setContent(new ScheduleView())),
-                    createActionButton("nav_applications", " Wnioski", "#8b5cf6", () -> mainLayout.setContent(new ApplicationsView())),
-                    createActionButton("nav_payments", " Płatności", "#ef4444", () -> mainLayout.setContent(new PaymentsView())),
-                    createActionButton("nav_messages", " Wiadomości", "#06b6d4", () -> mainLayout.setContent(new MessagesView())),
-                    createActionButton("nav_thesis", " Praca dyplomowa", "#f59e0b", () -> mainLayout.setContent(new TicketsView()))
+                    createActionButton("nav_applications", " Wnioski", "#8b5cf6", () -> mainLayout.setContent(new ApplicationsView(mainLayout.getCurrentUser(), mainLayout.getContext().getRequestService()))),
+                    createActionButton("nav_payments", " Płatności", "#ef4444", () -> mainLayout.setContent(new PaymentsView(mainLayout.getCurrentUser(), mainLayout.getContext().getPaymentService()))),
+                    createActionButton("nav_messages", " Wiadomości", "#06b6d4", () -> mainLayout.setContent(new MessagesView(mainLayout.getCurrentUser(), mainLayout.getContext().getMessageService(), mainLayout.getContext().getAuthService()))),
+                    createActionButton("nav_thesis", " Praca dyplomowa", "#f59e0b", () -> mainLayout.setContent(new TicketsView(mainLayout.getCurrentUser(), mainLayout.getContext().getServiceTicketService())))
             );
         } else if (role == UserRole.LECTURER) {
             actionsGrid.getChildren().addAll(
-                    createActionButton("nav_my_courses", " Moje kursy", "#8b5cf6", () -> mainLayout.setContent(new LecturerCoursesView(mainLayout))),
-                    createActionButton("nav_add_grades", " Wystaw oceny", "#10b981", () -> mainLayout.setContent(new LecturerGradesView())),
-                    createActionButton("nav_messages", " Wiadomości", "#06b6d4", () -> mainLayout.setContent(new LecturerMessagesView()))
+                    createActionButton("nav_my_courses", " Moje kursy", "#8b5cf6", () -> mainLayout.setContent(new LecturerCoursesView(mainLayout.getCurrentUser(), mainLayout.getContext().getCourseService()))),
+                    createActionButton("nav_add_grades", " Wystaw oceny", "#10b981", () -> mainLayout.setContent(new LecturerGradesView(mainLayout.getCurrentUser(), mainLayout.getContext().getGradeService()))),
+                    createActionButton("nav_messages", " Wiadomości", "#06b6d4", () -> mainLayout.setContent(new LecturerMessagesView(mainLayout.getCurrentUser(), mainLayout.getContext().getMessageService(), mainLayout.getContext().getAuthService())))
             );
         } else if (role == UserRole.ADMINISTRATOR) {
             actionsGrid.getChildren().addAll(
-                    createActionButton("nav_manage_users", " Użytkownicy", "#2563eb", () -> mainLayout.setContent(new UserManagementView())),
+                    createActionButton("nav_manage_users", " Użytkownicy", "#2563eb", () -> mainLayout.setContent(new UserManagementView(mainLayout.getContext().getAuthService()))),
                     createActionButton("nav_manage_schedule", " Edycja planu", "#f59e0b", () -> mainLayout.setContent(new AdminScheduleView())),
-                    createActionButton("nav_system_requests", " Wnioski systemowe", "#ec4899", () -> mainLayout.setContent(new SystemRequestsView())),
-                    createActionButton("nav_employee_dir", " Pracownicy", "#64748b", () -> mainLayout.setContent(new EmployeeListView()))
+                    createActionButton("nav_system_requests", " Wnioski systemowe", "#ec4899", () -> mainLayout.setContent(new SystemRequestsView(mainLayout.getContext().getRequestService()))),
+                    createActionButton("nav_employee_dir", " Pracownicy", "#64748b", () -> mainLayout.setContent(new EmployeeListView(mainLayout.getContext().getEmployeeService())))
             );
         }
 
@@ -201,7 +201,7 @@ public class DashboardView extends ScrollPane {
 
     public void translate() {
         // 1. Natychmiastowe tłumaczenie głównych etykiet tekstowych nagłówka
-        welcomeLabel.setText(MockDataProvider.i18n("dash_welcome") + ", Dmytro Lytvyn!");
+        welcomeLabel.setText(MockDataProvider.i18n("dash_welcome") + ", " + mainLayout.getCurrentUser().getFullName() + "!");
         infoLabel.setText(MockDataProvider.i18n("dash_info_sub"));
         statsTitleLabel.setText(MockDataProvider.i18n("dash_stats_title"));
         actionsTitleLabel.setText(MockDataProvider.i18n("dash_actions_title"));

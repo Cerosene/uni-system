@@ -3,70 +3,64 @@ package pl.usos2.client.view.lecturer;
 import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
 import javafx.scene.control.*;
-import javafx.scene.layout.*;
+import javafx.scene.layout.VBox;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
-import pl.usos2.server.model.user.Student;
-import pl.usos2.server.model.user.Lecturer;
-import pl.usos2.server.model.academic.Course;
-import pl.usos2.server.model.academic.Grade;
-import pl.usos2.server.model.enumtype.Semester;
-import pl.usos2.server.service.grade.GradeService;
 import pl.usos2.client.util.MockDataProvider;
+import pl.usos2.server.model.academic.Grade;
+import pl.usos2.server.model.user.Lecturer;
+import pl.usos2.server.model.user.Student;
+import pl.usos2.server.model.user.User;
+import pl.usos2.server.service.grade.GradeService;
 
-import java.util.ArrayList;
 import java.util.List;
 
 /**
  * Panel wystawiania ocen semestralnych przez wykładowcę akademickiego.
- * Zintegrowany z mechanizmem i18n oraz polskimi komentarzami logiki biznesowej.
+ * Zintegrowany z mechanizmem i18n oraz komunikacją z serwisem ocen.
  */
 public class LecturerGradesView extends VBox {
 
-    private static final GradeService gradeService = new GradeService();
-
+    private final GradeService gradeService;
     private final Lecturer currentLecturer;
-    private final Course currentCourse;
-    private final List<Student> studentsInGroup = new ArrayList<>();
 
     private final Label titleLabel;
-    private final TableView<StudentRow> table;
+    private final TableView<GradeRow> table;
     private final Button saveAllBtn;
 
-    // Kolumny tabeli wymagające lokalizacji nagłówków
-    private final TableColumn<StudentRow, String> idCol;
-    private final TableColumn<StudentRow, String> nameCol;
-    private final TableColumn<StudentRow, ComboBox<Double>> gradeCol;
-    private final TableColumn<StudentRow, TextField> descCol;
+    private final TableColumn<GradeRow, String> idCol;
+    private final TableColumn<GradeRow, String> nameCol;
+    private final TableColumn<GradeRow, String> courseCol;
+    private final TableColumn<GradeRow, ComboBox<Double>> gradeCol;
+    private final TableColumn<GradeRow, TextField> descCol;
 
-    public LecturerGradesView() {
+    public LecturerGradesView(User currentUser, GradeService gradeService) {
         setPadding(new Insets(30));
         setSpacing(20);
         setStyle("-fx-background-color: #f8fafc;");
 
-        // Inicjalizacja danych testowych (Mock Data)
-        currentLecturer = new Lecturer(2L, "Tomasz", "Nowak", "lecturer@uni.pl", "password123", "EMP8821", "prof. dr hab.");
-        currentCourse = new Course(301L, "Zaawansowane Algorytmy", "CS301", 5, Semester.THIRD);
+        this.gradeService = gradeService;
+        this.currentLecturer = (Lecturer) currentUser;
 
-        studentsInGroup.add(new Student(1003L, "Dmytro", "Lytvyn", "dmytro@uni.pl", "pass123", "320103", "Informatyka", Semester.THIRD));
-        studentsInGroup.add(new Student(1004L, "Anna", "Zielińska", "anna@uni.pl", "pass456", "320104", "Informatyka", Semester.THIRD));
+        List<Grade> lecturerGrades = gradeService.getGradesForLecturer(currentLecturer);
 
-        // Tytuł ekranu
         titleLabel = new Label();
         titleLabel.setFont(Font.font("System", FontWeight.BOLD, 24));
 
-        // Konfiguracja tabeli
         table = new TableView<>();
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         table.setStyle("-fx-background-radius: 8;");
 
         idCol = new TableColumn<>();
-        idCol.setCellValueFactory(d -> new javafx.beans.property.SimpleStringProperty(d.getValue().student.getStudentNumber()));
+        idCol.setCellValueFactory(d -> new javafx.beans.property.SimpleStringProperty(d.getValue().grade.getStudent().getStudentNumber()));
 
         nameCol = new TableColumn<>();
         nameCol.setCellValueFactory(d -> new javafx.beans.property.SimpleStringProperty(
-                d.getValue().student.getFirstName() + " " + d.getValue().student.getLastName()
+                d.getValue().grade.getStudent().getFullName()
         ));
+
+        courseCol = new TableColumn<>();
+        courseCol.setCellValueFactory(d -> new javafx.beans.property.SimpleStringProperty(d.getValue().grade.getCourse().getName()));
 
         gradeCol = new TableColumn<>();
         gradeCol.setCellValueFactory(d -> new javafx.beans.property.SimpleObjectProperty<>(d.getValue().gradeBox));
@@ -74,94 +68,68 @@ public class LecturerGradesView extends VBox {
         descCol = new TableColumn<>();
         descCol.setCellValueFactory(d -> new javafx.beans.property.SimpleObjectProperty<>(d.getValue().descField));
 
-        table.getColumns().addAll(idCol, nameCol, gradeCol, descCol);
+        table.getColumns().addAll(idCol, nameCol, courseCol, gradeCol, descCol);
 
-        // Mapowanie studentów na wiersze interaktywne tabeli
-        for (Student s : studentsInGroup) {
-            table.getItems().add(new StudentRow(s));
+        for (Grade grade : lecturerGrades) {
+            table.getItems().add(new GradeRow(grade));
         }
 
-        // Przycisk zapisu wszystkich ocen
         saveAllBtn = new Button();
         saveAllBtn.setStyle("-fx-background-color: #2563eb; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 10 20; -fx-background-radius: 6;");
-
-        saveAllBtn.setOnAction(e -> {
-            // Iteracja przez wszystkie wiersze studentów powiązane z tabelą interfejsu użytkownika
-            for (StudentRow row : table.getItems()) {
-                Double val = row.gradeBox.getValue();
-                String desc = row.descField.getText();
-
-                // Bezpieczna weryfikacja: przetwarzamy dane tylko wtedy, gdy ocena została wybrana
-                if (val != null) {
-                    // Tymczasowy log konsoli emulujący zapis danych do bazy (oczekiwanie na wdrożenie GradeService)
-                    System.out.println("Zapisano ocenę: " + val + " [" + desc + "] dla studenta: " + row.student.getLastName());
-                }
-            }
-
-            // Wyświetlenie okna informacyjnego o pomyślnym zapisie danych z uwzględnieniem mechanizmu i18n
-            Alert alert = new Alert(Alert.AlertType.INFORMATION);
-            alert.setTitle(MockDataProvider.i18n("alert_info_title"));
-            alert.setHeaderText(null);
-            alert.setContentText(MockDataProvider.i18n("grades_save_success_msg"));
-            alert.showAndWait();
-        });
+        saveAllBtn.setOnAction(e -> saveGrades());
 
         getChildren().addAll(titleLabel, table, saveAllBtn);
 
-        // Konfiguracja językowa początkowa
         refreshLocalization();
-
-        // Słuchacz zdarzeń re-lokalizacji językowej
         MockDataProvider.currentLocaleProperty().addListener((obs, oldLocale, newLocale) -> refreshLocalization());
     }
 
-    /**
-     * Odświeża nazwy i etykiety komponentów na ekranie oceniania.
-     */
+    private void saveGrades() {
+        for (GradeRow row : table.getItems()) {
+            Double newValue = row.gradeBox.getValue();
+            String description = row.descField.getText();
+            if (newValue != null) {
+                gradeService.updateGrade(row.grade, newValue, description != null ? description : "");
+            }
+        }
+
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle(MockDataProvider.i18n("alert_info_title"));
+        alert.setHeaderText(null);
+        alert.setContentText(MockDataProvider.i18n("grades_save_success_msg"));
+        alert.showAndWait();
+    }
+
     private void refreshLocalization() {
-        titleLabel.setText(MockDataProvider.i18n("lecturer_grades_title") + " - " + currentCourse.getName());
+        titleLabel.setText(MockDataProvider.i18n("lecturer_grades_title") + " - " + currentLecturer.getFullName());
         saveAllBtn.setText(MockDataProvider.i18n("lecturer_grades_save_btn"));
 
         idCol.setText(MockDataProvider.i18n("grades_col_student_id"));
         nameCol.setText(MockDataProvider.i18n("grades_col_student_name"));
+        courseCol.setText(MockDataProvider.i18n("grades_col_course"));
         gradeCol.setText(MockDataProvider.i18n("grades_col_value"));
         descCol.setText(MockDataProvider.i18n("grades_col_status"));
-
-        // Aktualizacja opisów słownych bezpośrednio wewnątrz pól tekstowych tabeli
-        for (StudentRow row : table.getItems()) {
-            row.updateStatusText();
-        }
     }
 
-    /**
-     * Pomocnicza klasa reprezentująca interaktywny wiersz tabeli oceniania studenta.
-     */
-    public static class StudentRow {
-        final Student student;
+    private static class GradeRow {
+        final Grade grade;
         final ComboBox<Double> gradeBox;
         final TextField descField;
 
-        public StudentRow(Student student) {
-            this.student = student;
+        GradeRow(Grade grade) {
+            this.grade = grade;
             this.gradeBox = new ComboBox<>(FXCollections.observableArrayList(2.0, 3.0, 3.5, 4.0, 4.5, 5.0));
-            this.descField = new TextField();
-            this.descField.setEditable(false);
+            this.descField = new TextField(grade.getDescription());
 
-            // Domyślna ocena na start
-            this.gradeBox.setValue(5.0);
-            updateStatusText();
-
-            // Reakcja na zmianę wybranej oceny w ComboBox
+            this.gradeBox.setValue(grade.getValue());
+            this.descField.setPrefWidth(150);
             this.gradeBox.valueProperty().addListener((obs, oldV, newV) -> updateStatusText());
+            updateStatusText();
         }
 
-        /**
-         * Automatycznie aktualizuje status tekstowy zaliczenia na podstawie języka systemu.
-         */
         void updateStatusText() {
-            Double val = gradeBox.getValue();
-            if (val != null) {
-                if (val < 3.0) {
+            if (gradeBox.getValue() != null && (grade.getDescription() == null || grade.getDescription().isBlank())) {
+                if (gradeBox.getValue() < 3.0) {
                     descField.setText(MockDataProvider.i18n("status_grade_failed"));
                 } else {
                     descField.setText(MockDataProvider.i18n("status_grade_passed"));

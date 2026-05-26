@@ -6,25 +6,41 @@ import javafx.collections.transformation.FilteredList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.*;
+import javafx.scene.control.PasswordField;
 import javafx.scene.layout.*;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import pl.usos2.client.util.MockDataProvider;
+import pl.usos2.server.model.enumtype.Semester;
+import pl.usos2.server.model.enumtype.UserRole;
+import pl.usos2.server.model.user.Administrator;
+import pl.usos2.server.model.user.Lecturer;
+import pl.usos2.server.model.user.Student;
+import pl.usos2.server.model.user.User;
+import pl.usos2.server.service.auth.AuthService;
+
+import java.util.List;
+import java.util.stream.Collectors;
 
 public class UserManagementView extends VBox {
 
-    // Główna lista przechowująca wszystkich użytkowników systemu w pamięci aplikacji
-    private final ObservableList<User> allUsers;
-    // Lista opakowana, umożliwiająca dynamiczne filtrowanie danych w tabeli w czasie rzeczywistym
-    private final FilteredList<User> filteredUsers;
-    private final TableView<User> table;
+    private final AuthService authService;
+    private final ObservableList<UserRow> allUsers;
+    private final FilteredList<UserRow> filteredUsers;
+    private final TableView<UserRow> table;
 
-    public UserManagementView() {
+    private final TextField firstNameInput = new TextField();
+    private final TextField lastNameInput = new TextField();
+    private final TextField emailInput = new TextField();
+    private final PasswordField passwordInput = new PasswordField();
+
+    public UserManagementView(AuthService authService) {
+        this.authService = authService;
+
         setPadding(new Insets(30));
         setSpacing(20);
         setStyle("-fx-background-color: #f8fafc;");
 
-        // Nagłówek panelu zarządzania użytkownikami
         HBox header = new HBox();
         header.setAlignment(Pos.CENTER_LEFT);
 
@@ -39,7 +55,6 @@ public class UserManagementView extends VBox {
 
         header.getChildren().addAll(title, spacer, addUserBtn);
 
-        // --- PANEL WYSZUKIWANIA I FILTROWANIA (Search Bar) ---
         HBox searchBar = new HBox(10);
         searchBar.setAlignment(Pos.CENTER_LEFT);
 
@@ -49,14 +64,13 @@ public class UserManagementView extends VBox {
 
         searchBar.getChildren().addAll(new Label(MockDataProvider.i18n("label_search")), searchField);
 
-        // --- TABELA UŻYTKOWNIKÓW (TableView) ---
         table = new TableView<>();
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
 
-        TableColumn<User, String> idCol = new TableColumn<>("ID");
-        TableColumn<User, String> nameCol = new TableColumn<>(MockDataProvider.i18n("col_user_name"));
-        TableColumn<User, String> roleCol = new TableColumn<>(MockDataProvider.i18n("col_user_role"));
-        TableColumn<User, String> statusCol = new TableColumn<>(MockDataProvider.i18n("col_user_status"));
+        TableColumn<UserRow, String> idCol = new TableColumn<>("ID");
+        TableColumn<UserRow, String> nameCol = new TableColumn<>(MockDataProvider.i18n("col_user_name"));
+        TableColumn<UserRow, String> roleCol = new TableColumn<>(MockDataProvider.i18n("col_user_role"));
+        TableColumn<UserRow, String> statusCol = new TableColumn<>(MockDataProvider.i18n("col_user_status"));
 
         idCol.setCellValueFactory(d -> d.getValue().idProperty());
         nameCol.setCellValueFactory(d -> d.getValue().nameProperty());
@@ -65,17 +79,12 @@ public class UserManagementView extends VBox {
 
         table.getColumns().addAll(idCol, nameCol, roleCol, statusCol);
 
-        // Inicjalizacja bazy danych Mock i powiązanie jej z filtrowaną strukturą danych
         allUsers = FXCollections.observableArrayList(
-                new User("1001", "Jan Kowalski", "Student", "Active"),
-                new User("1002", "Anna Nowak", "Lecturer", "Active"),
-                new User("1003", "Dmytro Lytvyn", "Student", "Active"),
-                new User("2001", "Tomasz Wiśniewski", "Admin", "Active")
+                authService.getAllUsers().stream().map(UserRow::new).collect(Collectors.toList())
         );
         filteredUsers = new FilteredList<>(allUsers, p -> true);
         table.setItems(filteredUsers);
 
-        // Logika automatycznego filtrowania wierszy tabeli przy wprowadzaniu tekstu w pole wyszukiwania
         searchField.textProperty().addListener((observable, oldValue, newValue) -> {
             filteredUsers.setPredicate(user -> {
                 if (newValue == null || newValue.isEmpty()) {
@@ -83,20 +92,18 @@ public class UserManagementView extends VBox {
                 }
                 String lowerCaseFilter = newValue.toLowerCase();
                 return user.getName().toLowerCase().contains(lowerCaseFilter) ||
-                        user.getId().contains(lowerCaseFilter) ||
+                        user.getId().toLowerCase().contains(lowerCaseFilter) ||
                         user.getRole().toLowerCase().contains(lowerCaseFilter);
             });
         });
 
-        // Podłączenie akcji otwierania formularza modalnego dodawania użytkownika
         addUserBtn.setOnAction(e -> openAddUserDialog());
 
         getChildren().addAll(header, searchBar, table);
     }
 
     private void openAddUserDialog() {
-        // Tworzenie dedykowanego okna modalnego (Dialog) do wprowadzania danych nowego konta
-        Dialog<User> dialog = new Dialog<>();
+        Dialog<UserRow> dialog = new Dialog<>();
         dialog.setTitle(MockDataProvider.i18n("dialog_add_user_title"));
         dialog.setHeaderText(MockDataProvider.i18n("dialog_add_user_header"));
 
@@ -108,46 +115,87 @@ public class UserManagementView extends VBox {
         grid.setVgap(10);
         grid.setPadding(new Insets(20, 150, 10, 10));
 
-        TextField idInput = new TextField();
-        TextField nameInput = new TextField();
-        ComboBox<String> roleInput = new ComboBox<>(FXCollections.observableArrayList("Student", "Lecturer", "Admin"));
+        ComboBox<String> roleInput = new ComboBox<>(FXCollections.observableArrayList("Student", "Lecturer", "Administrator"));
         roleInput.setValue("Student");
 
-        grid.add(new Label("ID:"), 0, 0);
-        grid.add(idInput, 1, 0);
-        grid.add(new Label(MockDataProvider.i18n("col_user_name") + ":"), 0, 1);
-        grid.add(nameInput, 1, 1);
-        grid.add(new Label(MockDataProvider.i18n("col_user_role") + ":"), 0, 2);
-        grid.add(roleInput, 1, 2);
+        grid.add(new Label(MockDataProvider.i18n("label_first_name") + ":"), 0, 0);
+        grid.add(firstNameInput, 1, 0);
+        grid.add(new Label(MockDataProvider.i18n("label_last_name") + ":"), 0, 1);
+        grid.add(lastNameInput, 1, 1);
+        grid.add(new Label(MockDataProvider.i18n("label_email") + ":"), 0, 2);
+        grid.add(emailInput, 1, 2);
+        grid.add(new Label(MockDataProvider.i18n("label_password") + ":"), 0, 3);
+        grid.add(passwordInput, 1, 3);
+        grid.add(new Label(MockDataProvider.i18n("col_user_role") + ":"), 0, 4);
+        grid.add(roleInput, 1, 4);
 
         dialog.getDialogPane().setContent(grid);
 
-        // Konwersja wyniku formularza na instancję klasy User po kliknięciu przycisku Zapisz
         dialog.setResultConverter(dialogButton -> {
             if (dialogButton == saveButtonType) {
-                return new User(idInput.getText(), nameInput.getText(), roleInput.getValue(), "Active");
+                long id = System.currentTimeMillis();
+                String firstName = firstNameInput.getText().trim();
+                String lastName = lastNameInput.getText().trim();
+                String email = emailInput.getText().trim();
+                String password = passwordInput.getText().trim();
+                String roleValue = roleInput.getValue();
+
+                if (firstName.isEmpty() || lastName.isEmpty() || email.isEmpty() || password.isEmpty()) {
+                    return null;
+                }
+
+                if ("Lecturer".equals(roleValue)) {
+                    return new UserRow(new Lecturer(id, firstName, lastName, email, password, "EMP" + id, "Dr."));
+                }
+                if ("Administrator".equals(roleValue)) {
+                    return new UserRow(new Administrator(id, firstName, lastName, email, password, "EMP" + id));
+                }
+                return new UserRow(new Student(id, firstName, lastName, email, password, "ST" + id, "Informatyka", Semester.THIRD));
             }
             return null;
         });
 
-        dialog.showAndWait().ifPresent(newUser -> {
-            // Dodanie nowego użytkownika do głównej listy (tabela zaktualizuje się automatycznie)
-            allUsers.add(newUser);
+        dialog.showAndWait().ifPresent(newUserRow -> {
+            try {
+                authService.register(newUserRow.originalUser);
+                allUsers.setAll(authService.getAllUsers().stream().map(UserRow::new).collect(Collectors.toList()));
+            } catch (IllegalArgumentException ex) {
+                Alert alert = new Alert(Alert.AlertType.ERROR);
+                alert.setTitle(MockDataProvider.i18n("alert_error_title"));
+                alert.setHeaderText(null);
+                alert.setContentText(ex.getMessage());
+                alert.showAndWait();
+            }
         });
     }
 
     // Wewnętrzny model danych reprezentujący strukturę użytkownika w tabeli administracyjnej
-    public static class User {
+    public static class UserRow {
+        private final User originalUser;
         private final javafx.beans.property.StringProperty id;
         private final javafx.beans.property.StringProperty name;
         private final javafx.beans.property.StringProperty role;
         private final javafx.beans.property.StringProperty status;
 
-        public User(String id, String name, String role, String status) {
-            this.id = new javafx.beans.property.SimpleStringProperty(id);
-            this.name = new javafx.beans.property.SimpleStringProperty(name);
-            this.role = new javafx.beans.property.SimpleStringProperty(role);
-            this.status = new javafx.beans.property.SimpleStringProperty(status);
+        public UserRow(User user) {
+            this.originalUser = user;
+            this.id = new javafx.beans.property.SimpleStringProperty(String.valueOf(user.getId()));
+            this.name = new javafx.beans.property.SimpleStringProperty(user.getFullName());
+            this.role = new javafx.beans.property.SimpleStringProperty(formatRole(user.getRole()));
+            this.status = new javafx.beans.property.SimpleStringProperty(formatStatus(user.isActive()));
+        }
+
+        private static String formatRole(UserRole userRole) {
+            return switch (userRole) {
+                case STUDENT -> MockDataProvider.i18n("role_student");
+                case LECTURER -> MockDataProvider.i18n("role_lecturer");
+                case ADMINISTRATOR -> MockDataProvider.i18n("role_administrator");
+                default -> userRole.name();
+            };
+        }
+
+        private static String formatStatus(boolean isActive) {
+            return isActive ? MockDataProvider.i18n("status_active") : MockDataProvider.i18n("status_inactive");
         }
 
         public String getId() { return id.get(); }

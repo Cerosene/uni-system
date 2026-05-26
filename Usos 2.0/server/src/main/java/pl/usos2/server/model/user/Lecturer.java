@@ -25,7 +25,7 @@ public class Lecturer extends Employee {
                 password,
                 employeeNumber,
                 "Lecturer",
-                BigDecimal.ZERO,
+                new BigDecimal("7000.00"),
                 UserRole.LECTURER
         );
         this.academicTitle = academicTitle;

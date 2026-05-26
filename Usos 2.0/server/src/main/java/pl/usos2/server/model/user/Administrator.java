@@ -23,7 +23,7 @@ public class Administrator extends Employee {
                 password,
                 employeeNumber,
                 "Administrator",
-                BigDecimal.ZERO,
+                new BigDecimal("6000.00"),
                 UserRole.ADMINISTRATOR
         );
     }

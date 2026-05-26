@@ -11,6 +11,10 @@ import pl.usos2.client.util.MockDataProvider;
 import pl.usos2.server.model.enumtype.RequestStatus;
 import pl.usos2.server.model.enumtype.RequestType;
 import pl.usos2.server.model.request.Request;
+import javafx.collections.FXCollections;
+import pl.usos2.server.model.user.Student;
+import pl.usos2.server.model.user.User;
+import pl.usos2.server.service.request.RequestService;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -29,11 +33,15 @@ public class ApplicationsView extends VBox {
     private final TextArea contentArea;
     private final Button submitBtn;
     private final Label historyTitleLabel;
+    private final Student currentStudent;
+    private final RequestService requestService;
 
     // Tabela historyczna wyświetlająca złożone wnioski
     private final TableView<Request> historyTable;
 
-    public ApplicationsView() {
+    public ApplicationsView(User currentUser, RequestService requestService) {
+        this.currentStudent = (Student) currentUser;
+        this.requestService = requestService;
         setPadding(new Insets(30));
         setSpacing(20);
         setStyle("-fx-background-color: #f8fafc;");
@@ -111,7 +119,9 @@ public class ApplicationsView extends VBox {
         historyTable.getColumns().addAll(typeCol, contentCol, statusCol, dateCol);
 
         // Podpięcie reaktywnej listy wniosków z globalnego MockDataProvider
-        historyTable.setItems(MockDataProvider.requests);
+        historyTable.setItems(FXCollections.observableArrayList(
+                requestService.getRequestsByStudent(currentStudent)
+        ));
 
         getChildren().addAll(titleLabel, formContainer, historyTitleLabel, historyTable);
 
@@ -139,38 +149,21 @@ public class ApplicationsView extends VBox {
             return;
         }
 
-        // Pobranie aktualnego studenta zalogowanego w systemie za pomocą MockDataProvider
-        pl.usos2.server.model.user.Student currentStudent = MockDataProvider.students.stream()
-                .filter(s -> s.getLastName().equals("Lytvyn"))
-                .findFirst()
-                .orElse(MockDataProvider.students.get(0));
+        requestService.submitRequest(currentStudent, selectedType, contentText.trim());
+        refreshRequestsTable();
 
-        // Wyznaczenie nowego unikalnego ID dla wniosku bezpośrednio z publicznej listy requests
-        long newId = MockDataProvider.requests.size() + 1L;
-
-        // Tworzenie nowej instancji obiektu klasy modelowej Request
-        Request newRequest = new Request(
-                newId,
-                currentStudent,
-                selectedType,
-                contentText.trim(),
-                RequestStatus.SUBMITTED,
-                LocalDateTime.now()
-        );
-
-        // Dodanie wniosku do globalnej listy demonstracyjnej (tabela odświeży się automatycznie)
-        MockDataProvider.requests.add(newRequest);
-
-        // Wyczyszczenie formularza po pomyślnym przesłaniu danych
         typeCombo.setValue(null);
         contentArea.clear();
 
-        // Wyświetlenie komunikatu o sukcesie operacji
         Alert successAlert = new Alert(Alert.AlertType.INFORMATION);
         successAlert.setTitle(MockDataProvider.i18n("alert_success_title"));
         successAlert.setHeaderText(MockDataProvider.i18n("alert_success_header"));
         successAlert.setContentText(MockDataProvider.i18n("alert_success_content"));
         successAlert.showAndWait();
+    }
+
+    private void refreshRequestsTable() {
+        historyTable.setItems(FXCollections.observableArrayList(requestService.getRequestsByStudent(currentStudent)));
     }
 
     /**

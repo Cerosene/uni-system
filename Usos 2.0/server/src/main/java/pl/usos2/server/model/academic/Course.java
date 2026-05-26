@@ -11,9 +11,6 @@ public class Course extends BaseEntity {
     private int ects;
     private Lecturer lecturer;
 
-    public Course(long id, String zaawansowaneAlgorytmy, String cs301, int ects, Semester third) {
-    }
-
     public Course(Long id, String name, String code, int ects, Lecturer lecturer) {
         super(id);
         this.name = name;
@@ -36,5 +33,16 @@ public class Course extends BaseEntity {
 
     public Lecturer getLecturer() {
         return lecturer;
+    }
+
+    @Override
+    public String toString() {
+        String courseName = name != null ? name : "Przedmiot bez nazwy";
+        
+        if (code == null || code.isBlank()) {
+            return courseName;
+        }
+        
+        return courseName + " (" + code + ", " + ects + " ECTS)";
     }
 }

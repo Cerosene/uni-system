@@ -8,7 +8,6 @@ import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import pl.usos2.client.MainApp;
-import pl.usos2.server.model.enumtype.UserRole;
 
 // Подключаем серверную логику авторизации и модель пользователя
 import pl.usos2.server.service.auth.AuthService;
@@ -17,14 +16,11 @@ import pl.usos2.server.model.user.User;
 public class LoginView extends StackPane {
 
     private final MainApp mainApp;
-    // Tworzymy instancję serwisu autoryzacyjnego
-    private final AuthService authService = new AuthService();
+    private final AuthService authService;
 
-    public LoginView(MainApp app) {
+    public LoginView(MainApp app, AuthService authService) {
         this.mainApp = app;
-
-        // Inicjujemy użytkowników testowych (baza danych mock wewnątrz serwisu)
-        initMockUsers();
+        this.authService = authService;
 
 
         setStyle("-fx-background-color: linear-gradient(to bottom right, #eff6ff, #ffffff, #eff6ff);");
@@ -64,7 +60,7 @@ public class LoginView extends StackPane {
         Label userLabel = new Label("E-mail");
         userLabel.setFont(Font.font("System", FontWeight.SEMI_BOLD, 14));
         TextField userField = new TextField();
-        userField.setPromptText("student@uni.pl");
+        userField.setPromptText("mateusz@uni.pl");
         setupFieldStyle(userField);
 
         Label passLabel = new Label("Hasło");
@@ -101,15 +97,7 @@ public class LoginView extends StackPane {
                 errorLabel.setManaged(false);
 
                 // Pobieramy serwerową enumację ról i mapujemy ją na klientowską klasę UserRole w celu zmiany ekranu
-                String serverRole = loggedInUser.getRole().toString().toUpperCase();
-
-                if (serverRole.contains("ADMIN")) {
-                    mainApp.showMainLayout(UserRole.ADMINISTRATOR);
-                } else if (serverRole.contains("LECTURER")) {
-                    mainApp.showMainLayout(UserRole.LECTURER);
-                } else {
-                    mainApp.showMainLayout(UserRole.STUDENT);
-                }
+                mainApp.onLoginSuccess(loggedInUser);
 
             } catch (IllegalArgumentException | IllegalStateException ex) {
                 // Tutaj pojawią się błędy z AuthService: "Invalid email or password" lub "User account is inactive"
@@ -139,17 +127,5 @@ public class LoginView extends StackPane {
         label.setText(message);
         label.setVisible(true);
         label.setManaged(true);
-    }
-
-    // Wprowadzenie tymczasowych danych do AuthService na potrzeby testów autoryzacji
-    private void initMockUsers() {
-        try {
-            // Tworzymy anonimowe podklasy serwerowej klasy abstrakcyjnej User na potrzeby testów
-            authService.register(new User(1L, "Jan", "Kowalski", "student@uni.pl", "password123", pl.usos2.server.model.enumtype.UserRole.STUDENT, true) {});
-            authService.register(new User(2L, "Tomasz", "Nowak", "lecturer@uni.pl", "password123", pl.usos2.server.model.enumtype.UserRole.LECTURER, true) {});
-            authService.register(new User(3L, "Anna", "Zielińska", "admin@uni.pl", "password123", pl.usos2.server.model.enumtype.UserRole.ADMINISTRATOR, true) {});
-        } catch (Exception e) {
-            // Ignorujemy duplikaty podczas ponownej inicjalizacji
-        }
     }
 }

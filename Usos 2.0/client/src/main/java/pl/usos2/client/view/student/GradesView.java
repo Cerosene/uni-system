@@ -8,6 +8,12 @@ import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import pl.usos2.client.util.MockDataProvider;
+import pl.usos2.server.model.academic.Grade;
+import pl.usos2.server.model.user.Student;
+import pl.usos2.server.model.user.User;
+import pl.usos2.server.service.grade.GradeService;
+
+import java.util.List;
 
 /**
  * Widok ocen studenta podzielony na semestry za pomocą komponentu Accordion.
@@ -17,14 +23,14 @@ public class GradesView extends ScrollPane {
 
     private final VBox container;
     private final Label titleLabel;
-    private final Accordion accordion;
+    private final VBox gradesBox;
 
-    // Zakładka semestru przechowywana jako pole w celu dynamicznej aktualizacji
-    private TitledPane semester3Pane;
-
-    public GradesView() {
+    public GradesView(User currentUser, GradeService gradeService) {
         setFitToWidth(true);
         setStyle("-fx-background-color: #f8fafc; -fx-background: #f8fafc;");
+
+        Student currentStudent = (Student) currentUser;
+        List<Grade> studentGrades = gradeService.getGradesForStudent(currentStudent);
 
         container = new VBox(20);
         container.setPadding(new Insets(30));
@@ -33,129 +39,79 @@ public class GradesView extends ScrollPane {
         titleLabel.setFont(Font.font("System", FontWeight.BOLD, 26));
         container.getChildren().add(titleLabel);
 
-        accordion = new Accordion();
-        container.getChildren().add(accordion);
+        gradesBox = new VBox(15);
+        gradesBox.setPadding(new Insets(10, 0, 0, 0));
 
-        // Budowanie struktury ocen
-        buildGradesStructure();
+        if (studentGrades.isEmpty()) {
+            Label noGrades = new Label(MockDataProvider.i18n("grades_empty_message"));
+            noGrades.setFont(Font.font("System", 16));
+            noGrades.setTextFill(Color.web("#475569"));
+            gradesBox.getChildren().add(noGrades);
+        } else {
+            for (Grade grade : studentGrades) {
+                gradesBox.getChildren().add(createGradeRow(grade));
+            }
+        }
 
+        container.getChildren().add(gradesBox);
         setContent(container);
 
-        // Pierwsza konfiguracja języka
         refreshLocalization();
-
-        // Słuchacz zmian językowych w systemie
         MockDataProvider.currentLocaleProperty().addListener((obs, oldLocale, newLocale) -> refreshLocalization());
     }
 
-    /**
-     * Tworzy strukturę zakładek semestralnych w komponencie Accordion.
-     */
-    private void buildGradesStructure() {
-        semester3Pane = new TitledPane();
-
-        VBox semesterContentBox = new VBox(10);
-        semesterContentBox.setPadding(new Insets(15));
-        semesterContentBox.setStyle("-fx-background-color: #f8fafc;");
-
-        // Dodawanie wierszy z ocenami (Klucze i18n przedmiotów przekazywane do metody pomocniczej)
-        semesterContentBox.getChildren().addAll(
-                createGradeRow("ALG01", "subject_algorithms", "dr inż. Janusz Nowak", "6", 4.5, true),
-                createGradeRow("DB202", "subject_databases", "prof. Maria Kowalska", "5", 5.0, true),
-                createGradeRow("NET03", "subject_networks", "dr Adam Wiśniewski", "4", 2.0, false)
-        );
-
-        semester3Pane.setContent(semesterContentBox);
-        accordion.getPanes().add(semester3Pane);
-        accordion.setExpandedPane(semester3Pane);
-    }
-
-    /**
-     * Tworzy pojedynczy wiersz tabeli ocen dla danego przedmiotu.
-     */
-    private HBox createGradeRow(String code, String nameKey, String lecturer, String ects, double grade, boolean isPassed) {
+    private HBox createGradeRow(Grade grade) {
         HBox row = new HBox(15);
         row.setAlignment(Pos.CENTER_LEFT);
         row.setPadding(new Insets(12, 20, 12, 20));
         row.setStyle("-fx-background-color: white; -fx-background-radius: 8; -fx-border-color: #e2e8f0; -fx-border-width: 1;");
 
-        VBox subjectBox = new VBox(2);
-        subjectBox.setMinWidth(250);
+        VBox subjectBox = new VBox(4);
+        subjectBox.setMinWidth(260);
 
-        Label nameLbl = new Label(MockDataProvider.i18n(nameKey));
-        nameLbl.setStyle("-fx-font-weight: bold; -fx-text-fill: #1e293b;");
+        Label courseName = new Label(grade.getCourse().getName());
+        courseName.setFont(Font.font("System", FontWeight.BOLD, 14));
+        courseName.setTextFill(Color.web("#1e293b"));
 
-        Label codeLbl = new Label(code);
-        codeLbl.setTextFill(Color.GRAY);
-        subjectBox.getChildren().addAll(nameLbl, codeLbl);
+        Label courseCode = new Label(grade.getCourse().getCode());
+        courseCode.setTextFill(Color.GRAY);
+        subjectBox.getChildren().addAll(courseName, courseCode);
 
-        Label lectLbl = new Label(lecturer);
-        lectLbl.setMinWidth(180);
-        lectLbl.setTextFill(Color.web("#475569"));
+        Label lecturer = new Label(grade.getLecturer().getFullName());
+        lecturer.setMinWidth(180);
+        lecturer.setTextFill(Color.web("#475569"));
 
-        Label ectsLbl = new Label("ECTS: " + ects);
-        ectsLbl.setMinWidth(80);
-        ectsLbl.setTextFill(Color.web("#64748b"));
+        Label ects = new Label("ECTS: " + grade.getCourse().getEcts());
+        ects.setMinWidth(80);
+        ects.setTextFill(Color.web("#64748b"));
 
-        Label gradeLbl = new Label(String.format("%.1f", grade));
-        gradeLbl.setMinWidth(60);
-        gradeLbl.setStyle("-fx-font-weight: bold; -fx-font-size: 16px;");
+        Label value = new Label(String.format("%.1f", grade.getValue()));
+        value.setMinWidth(60);
+        value.setFont(Font.font("System", FontWeight.BOLD, 16));
+        value.setTextFill(grade.getValue() >= 3.0 ? Color.web("#10b981") : Color.web("#ef4444"));
 
-        // Status zaliczenia przedmiotu
-        Label statusLbl = new Label(isPassed ? MockDataProvider.i18n("status_passed") : MockDataProvider.i18n("status_failed"));
-        statusLbl.setPadding(new Insets(4, 8, 4, 8));
-
-        if (isPassed) {
-            gradeLbl.setTextFill(Color.web("#10b981"));
-            statusLbl.setStyle("-fx-background-color: #dcfce7; -fx-text-fill: #15803d; -fx-background-radius: 4; -fx-font-size: 11; -fx-font-weight: bold;");
-        } else {
-            gradeLbl.setTextFill(Color.web("#ef4444"));
-            statusLbl.setStyle("-fx-background-color: #fee2e2; -fx-text-fill: #b91c1c; -fx-background-radius: 4; -fx-font-size: 11; -fx-font-weight: bold;");
-        }
+        Label status = new Label(grade.getValue() >= 3.0 ? MockDataProvider.i18n("status_passed") : MockDataProvider.i18n("status_failed"));
+        status.setPadding(new Insets(4, 8, 4, 8));
+        status.setStyle(grade.getValue() >= 3.0
+                ? "-fx-background-color: #dcfce7; -fx-text-fill: #15803d; -fx-background-radius: 4; -fx-font-size: 11; -fx-font-weight: bold;"
+                : "-fx-background-color: #fee2e2; -fx-text-fill: #b91c1c; -fx-background-radius: 4; -fx-font-size: 11; -fx-font-weight: bold;");
 
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
-        row.getChildren().addAll(subjectBox, lectLbl, ectsLbl, gradeLbl, spacer, statusLbl);
-
-        // Przechowywanie klucza nazwy przedmiotu i statusu w celach późniejszego tłumaczenia
-        row.setUserData(new Object[]{nameKey, isPassed});
-
+        row.getChildren().addAll(subjectBox, lecturer, ects, value, spacer, status);
+        row.setUserData(grade);
         return row;
     }
 
-    /**
-     * Odświeża komponenty tekstowe widoku po zmianie języka aplikacji.
-     */
     private void refreshLocalization() {
         titleLabel.setText(MockDataProvider.i18n("grades_title"));
-        semester3Pane.setText(MockDataProvider.i18n("semester_3_label"));
 
-        // Aktualizacja wierszy wewnątrz TitledPane
-        if (semester3Pane.getContent() instanceof VBox) {
-            VBox contentBox = (VBox) semester3Pane.getContent();
-            for (javafx.scene.Node node : contentBox.getChildren()) {
-                if (node instanceof HBox && node.getUserData() instanceof Object[]) {
-                    Object[] data = (Object[]) node.getUserData();
-                    String nameKey = (String) data[0];
-                    boolean isPassed = (boolean) data[1];
-
-                    HBox row = (HBox) node;
-
-                    // Aktualizacja nazwy przedmiotu (wewnątrz VBox)
-                    if (row.getChildren().get(0) instanceof VBox) {
-                        VBox sBox = (VBox) row.getChildren().get(0);
-                        if (sBox.getChildren().get(0) instanceof Label) {
-                            ((Label) sBox.getChildren().get(0)).setText(MockDataProvider.i18n(nameKey));
-                        }
-                    }
-
-                    // Aktualizacja etykiety statusu (ostatni element HBox)
-                    javafx.scene.Node lastNode = row.getChildren().get(row.getChildren().size() - 1);
-                    if (lastNode instanceof Label) {
-                        ((Label) lastNode).setText(isPassed ? MockDataProvider.i18n("status_passed") : MockDataProvider.i18n("status_failed"));
-                    }
-                }
+        for (javafx.scene.Node node : gradesBox.getChildren()) {
+            if (node instanceof HBox && ((HBox) node).getUserData() instanceof Grade) {
+                Grade grade = (Grade) ((HBox) node).getUserData();
+                Label status = (Label) ((HBox) node).getChildren().get(((HBox) node).getChildren().size() - 1);
+                status.setText(grade.getValue() >= 3.0 ? MockDataProvider.i18n("status_passed") : MockDataProvider.i18n("status_failed"));
             }
         }
     }

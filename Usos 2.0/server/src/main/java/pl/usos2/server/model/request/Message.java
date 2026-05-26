@@ -55,4 +55,12 @@ public class Message extends BaseEntity {
     public void setStatus(MessageStatus status) {
         this.status = status;
     }
+
+    @Override
+    public String toString() {
+        String senderName = sender != null ? sender.getFullName() : "System";
+        String subjectText = subject != null && !subject.isBlank() ? subject : "Brak tematu";
+        
+        return "Od: " + senderName + " | Temat: " + subjectText;
+    }
 }

@@ -1,5 +1,6 @@
 package pl.usos2.client.view.student;
 
+import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.*;
@@ -8,6 +9,9 @@ import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import pl.usos2.server.model.finance.Payment;
+import pl.usos2.server.model.user.Student;
+import pl.usos2.server.model.user.User;
+import pl.usos2.server.service.finance.PaymentService;
 import pl.usos2.client.util.MockDataProvider;
 
 import java.math.BigDecimal;
@@ -23,9 +27,13 @@ import java.util.List;
  */
 public class PaymentsView extends VBox {
 
+    private final Student currentStudent;
+    private final PaymentService paymentService;
+
     // Węzły strukturalne UI do aktualizacji językowej
     private final Label titleLabel;
     private final Label accountStatusTitle;
+    private final Label balanceValue;
     private final Label balanceSubLabel;
     private final Label historyLabel;
 
@@ -36,10 +44,13 @@ public class PaymentsView extends VBox {
     private final TableColumn<Payment, LocalDate> dateCol;
     private final TableColumn<Payment, Boolean> statusCol;
 
-    public PaymentsView() {
+    public PaymentsView(User currentUser, PaymentService paymentService) {
         setPadding(new Insets(30));
         setSpacing(25);
         setStyle("-fx-background-color: #f8fafc;");
+
+        this.currentStudent = (Student) currentUser;
+        this.paymentService = paymentService;
 
         // Główny tytuł sekcji opłat
         titleLabel = new Label();
@@ -59,7 +70,7 @@ public class PaymentsView extends VBox {
         accountStatusTitle.setTextFill(Color.web("#64748b"));
         accountStatusTitle.setFont(Font.font("System", FontWeight.SEMI_BOLD, 14));
 
-        Label balanceValue = new Label("0.00 PLN");
+        balanceValue = new Label("0.00 PLN");
         balanceValue.setFont(Font.font("System", FontWeight.BOLD, 28));
         balanceValue.setTextFill(Color.web("#10b981")); // Zielony kolor oznacza brak zadłużeń
 
@@ -136,8 +147,9 @@ public class PaymentsView extends VBox {
         });
 
         table.getColumns().addAll(titleCol, amountCol, dateCol, statusCol);
-        table.getItems().addAll(getMockPayments());
+        table.setItems(FXCollections.observableArrayList(paymentService.getPaymentsForStudent(currentStudent)));
 
+        refreshPaymentData();
         getChildren().addAll(titleLabel, balanceCard, historyLabel, table);
 
         // Ustawienie aktualnego języka na starcie widoku
@@ -147,15 +159,17 @@ public class PaymentsView extends VBox {
         MockDataProvider.currentLocaleProperty().addListener((obs, oldLocale, newLocale) -> refreshLocalization());
     }
 
-    /**
-     * Tworzy przykładowy zestaw rozliczeń finansowych studenta.
-     */
-    private List<Payment> getMockPayments() {
-        List<Payment> list = new ArrayList<>();
-        list.add(new Payment(1L, "Opłata za legitymację studencką", new BigDecimal("22.00"), LocalDate.of(2025, 10, 15), true));
-        list.add(new Payment(2L, "Czesne - Semestr 3 (Rata 1/1)", new BigDecimal("2000.00"), LocalDate.of(2025, 11, 1), true));
-        list.add(new Payment(3L, "Opłata za powtarzanie kursu: Sieci Komputerowe", new BigDecimal("450.00"), LocalDate.of(2026, 06, 15), false));
-        return list;
+    private void refreshPaymentData() {
+        var payments = paymentService.getPaymentsForStudent(currentStudent);
+        table.setItems(FXCollections.observableArrayList(payments));
+
+        var unpaidSum = payments.stream()
+                .filter(payment -> !payment.isPaid())
+                .map(Payment::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        balanceValue.setText(String.format("%.2f PLN", unpaidSum));
+        balanceSubLabel.setText(MockDataProvider.i18n("balance_sub_info") + " • " + payments.size() + " opłat");
     }
 
     /**

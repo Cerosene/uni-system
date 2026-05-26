@@ -52,4 +52,9 @@ public class StudentGroup extends BaseEntity {
         }
         students.remove(student);
     }
+
+    @Override
+    public String toString() {
+        return name != null ? name : "Grupa bez nazwy";
+    }
 }

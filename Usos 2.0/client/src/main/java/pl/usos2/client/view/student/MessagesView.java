@@ -1,6 +1,6 @@
 package pl.usos2.client.view.student;
 
-import javafx.collections.transformation.FilteredList;
+import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
@@ -8,11 +8,13 @@ import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.util.StringConverter;
 import pl.usos2.client.util.MockDataProvider;
-import pl.usos2.server.model.enumtype.MessageStatus;
+import pl.usos2.server.model.enumtype.UserRole;
 import pl.usos2.server.model.request.Message;
 import pl.usos2.server.model.user.Lecturer;
 import pl.usos2.server.model.user.Student;
-import pl.usos2.server.model.enumtype.Semester;
+import pl.usos2.server.model.user.User;
+import pl.usos2.server.service.auth.AuthService;
+import pl.usos2.server.service.message.MessageService;
 
 import java.time.LocalDateTime;
 
@@ -23,8 +25,10 @@ import java.time.LocalDateTime;
  */
 public class MessagesView extends VBox {
 
-    // Dane zalogowanego studenta (zsynchronizowane z MockDataProvider)
+    // Dane zalogowanego studenta
     private final Student currentStudent;
+    private final MessageService messageService;
+    private final AuthService authService;
 
     // Komponenty UI wymagające lokalizacji i18n
     private final Label titleLabel;
@@ -47,13 +51,14 @@ public class MessagesView extends VBox {
     private final Label previewContentLabel;
     private final TextArea messageContentView;
 
-    public MessagesView() {
+    public MessagesView(User currentUser, MessageService messageService, AuthService authService) {
         setPadding(new Insets(30));
         setSpacing(20);
         setStyle("-fx-background-color: #f8fafc;");
 
-        // Definicja zalogowanego studenta (Dmytro Lytvyn z bazy danych demonstracyjnych)
-        currentStudent = new Student(1003L, "Dmytro", "Lytvyn", "dmytro@uni.pl", "pass123", "320103", "Informatyka", Semester.THIRD);
+        this.currentStudent = (Student) currentUser;
+        this.messageService = messageService;
+        this.authService = authService;
 
         // Główny nagłówek ekranu wiadomości
         titleLabel = new Label();
@@ -81,8 +86,12 @@ public class MessagesView extends VBox {
         lecturerComboBox.setPrefHeight(38);
         lecturerComboBox.setStyle("-fx-background-color: #f1f5f9; -fx-border-color: #cbd5e1; -fx-border-radius: 6; -fx-background-radius: 6;");
 
-        // Załadowanie unikalnych wykładowców bezpośrednio z centralnego MockDataProvider
-        lecturerComboBox.setItems(MockDataProvider.lecturers);
+        // Załadowanie unikalnych wykładowców z serwisu autoryzacji
+        var lecturers = authService.getUsersByRole(UserRole.LECTURER).stream()
+                .filter(user -> user instanceof Lecturer)
+                .map(user -> (Lecturer) user)
+                .toList();
+        lecturerComboBox.setItems(FXCollections.observableArrayList(lecturers));
 
         // Konwerter do poprawnego wyświetlania tytułów naukowych i nazwisk wykładowców
         lecturerComboBox.setConverter(new StringConverter<>() {
@@ -215,22 +224,9 @@ public class MessagesView extends VBox {
             return;
         }
 
-        // Tworzenie instancji wiadomości serwerowej (zgodnie z konstruktorem w bazie)
-        long newId = MockDataProvider.messages.size() + 1L;
-        Message newMessage = new Message(
-                newId,
-                currentStudent,       // Nadawca
-                selectedLecturer,     // Odbiorca
-                subjectText.trim(),   // Temat
-                bodyText.trim(),      // Treść
-                LocalDateTime.now(),  // Data utworzenia
-                MessageStatus.SENT    // Status początkowy
-        );
+        messageService.sendMessage(currentStudent, selectedLecturer, subjectText.trim(), bodyText.trim());
+        refreshStudentInbox();
 
-        // Zapis do centralnego repozytorium danych demonstracyjnych
-        MockDataProvider.messages.add(newMessage);
-
-        // Czyszczenie pól formularza po udanej wysyłce
         lecturerComboBox.setValue(null);
         subjectField.clear();
         messageArea.clear();
@@ -250,11 +246,7 @@ public class MessagesView extends VBox {
         inboxListView.getSelectionModel().clearSelection();
         messageContentView.clear();
 
-        // Filtrowanie reaktywnej listy na podstawie ID zalogowanego studenta
-        FilteredList<Message> filteredInbox = new FilteredList<>(MockDataProvider.messages,
-                m -> m.getRecipient() != null && m.getRecipient().getId().equals(currentStudent.getId()));
-
-        inboxListView.setItems(filteredInbox);
+        inboxListView.setItems(FXCollections.observableArrayList(messageService.getInbox(currentStudent)));
     }
 
     /**

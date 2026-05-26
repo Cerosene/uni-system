@@ -1,17 +1,20 @@
 package pl.usos2.client.view.lecturer;
 
+import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.util.StringConverter;
+import pl.usos2.client.util.MockDataProvider;
+import pl.usos2.server.model.enumtype.UserRole;
+import pl.usos2.server.model.request.Message;
 import pl.usos2.server.model.user.Lecturer;
 import pl.usos2.server.model.user.Student;
-import pl.usos2.server.model.enumtype.Semester;
-import pl.usos2.server.model.request.Message;
+import pl.usos2.server.model.user.User;
+import pl.usos2.server.service.auth.AuthService;
 import pl.usos2.server.service.message.MessageService;
-import pl.usos2.client.util.MockDataProvider;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -22,7 +25,8 @@ import java.util.stream.Collectors;
  */
 public class LecturerMessagesView extends VBox {
 
-    private static final MessageService messageService = new MessageService();
+    private final MessageService messageService;
+    private final AuthService authService;
     private final Lecturer currentLecturer;
 
     // Komponenty UI wymagające aktualizacji językowej
@@ -41,14 +45,15 @@ public class LecturerMessagesView extends VBox {
     private TextField subjectField;
     private TextArea messageArea;
 
-    public LecturerMessagesView() {
+    public LecturerMessagesView(User currentUser, MessageService messageService, AuthService authService) {
         setPadding(new Insets(30));
         setSpacing(20);
         setStyle("-fx-background-color: #f8fafc;");
 
-        currentLecturer = new Lecturer(2L, "Tomasz", "Nowak", "lecturer@uni.pl", "password123", "EMP201", "Dr.");
+        this.currentLecturer = (Lecturer) currentUser;
+        this.messageService = messageService;
+        this.authService = authService;
 
-        // Inicjalizacja etykiet i przycisków
         titleLabel = new Label();
         titleLabel.setFont(Font.font("System", FontWeight.BOLD, 24));
 
@@ -60,7 +65,6 @@ public class LecturerMessagesView extends VBox {
         replyBtn = new Button();
         sendBtn = new Button();
 
-        // Podział ekranu na dwie główne sekcje
         HBox mainContent = new HBox(30);
         VBox.setVgrow(mainContent, Priority.ALWAYS);
 
@@ -73,11 +77,9 @@ public class LecturerMessagesView extends VBox {
         mainContent.getChildren().addAll(inboxSection, formSection);
         getChildren().addAll(titleLabel, mainContent);
 
-        // Ładowanie wiadomości na start i konfiguracja i18n
         refreshMessages();
         refreshLocalization();
 
-        // Reaktywne odświeżanie tekstów przy zmianie języka aplikacji
         MockDataProvider.currentLocaleProperty().addListener((obs, oldLocale, newLocale) -> refreshLocalization());
     }
 
@@ -100,7 +102,6 @@ public class LecturerMessagesView extends VBox {
         refreshBtn.setStyle("-fx-background-color: #f1f5f9; -fx-text-fill: #334155;");
         refreshBtn.setOnAction(e -> refreshMessages());
 
-        replyBtn.setStyle("-fx-background-color: #10b981; -fx-text-fill: white; -fx-font-weight: bold;");
         replyBtn.setStyle("-fx-background-color: #10b981; -fx-text-fill: white; -fx-font-weight: bold;");
         replyBtn.setOnAction(e -> {
             Message selected = inboxListView.getSelectionModel().getSelectedItem();
@@ -145,11 +146,12 @@ public class LecturerMessagesView extends VBox {
         studentCombo = new ComboBox<>();
         studentCombo.setMaxWidth(Double.MAX_VALUE);
 
-        // Dodanie przykładowych studentów do wyboru
-        studentCombo.getItems().addAll(
-                new Student(1003L, "Dmytro", "Lytvyn", "dmytro@uni.pl", "pass123", "320103", "Informatyka", Semester.THIRD),
-                new Student(1004L, "Anna", "Zielińska", "anna@uni.pl", "pass456", "320104", "Informatyka", Semester.THIRD)
-        );
+        studentCombo.setItems(FXCollections.observableArrayList(
+                authService.getUsersByRole(UserRole.STUDENT).stream()
+                        .filter(user -> user instanceof Student)
+                        .map(user -> (Student) user)
+                        .collect(Collectors.toList())
+        ));
 
         studentCombo.setConverter(new StringConverter<Student>() {
             @Override
@@ -221,12 +223,7 @@ public class LecturerMessagesView extends VBox {
         inboxListView.getItems().clear();
         messageContentView.clear();
 
-        List<Message> allMessages = messageService.getAllMessages();
-        List<Message> lecturerInbox = allMessages.stream()
-                .filter(m -> m.getRecipient() != null && m.getRecipient().getId().equals(currentLecturer.getId()))
-                .collect(Collectors.toList());
-
-        inboxListView.getItems().addAll(lecturerInbox);
+        inboxListView.getItems().addAll(messageService.getInbox(currentLecturer));
     }
 
     private void showAlert(Alert.AlertType type, String titleKey, String contentKey) {
@@ -235,9 +232,5 @@ public class LecturerMessagesView extends VBox {
         alert.setHeaderText(null);
         alert.setContentText(MockDataProvider.i18n(contentKey));
         alert.showAndWait();
-    }
-
-    public static MessageService getSharedMessageService() {
-        return messageService;
     }
 }

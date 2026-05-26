@@ -17,6 +17,9 @@ import pl.usos2.client.view.lecturer.LecturerCoursesView;
 import pl.usos2.client.view.lecturer.LecturerGradesView;
 import pl.usos2.client.view.lecturer.LecturerMessagesView;
 import pl.usos2.client.view.admin.*;
+import pl.usos2.server.config.ApplicationContext;
+import pl.usos2.server.model.user.User;
+import pl.usos2.server.service.request.RequestService;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -28,14 +31,18 @@ import java.util.Locale;
  */
 public class MainLayout extends BorderPane {
     private final StackPane contentArea;
+    private final User currentUser;
     private final UserRole role;
+    private final ApplicationContext context;
     private final MainApp mainApp;
 
     // Lista przycisków nawigacyjnych do dynamicznego tłumaczenia i odświeżania UI
     private final List<NavButtonConfig> navButtons = new ArrayList<>();
 
-    public MainLayout(UserRole role, MainApp mainApp) {
-        this.role = role;
+    public MainLayout(User currentUser, ApplicationContext context, MainApp mainApp) {
+        this.currentUser = currentUser;
+        this.role = currentUser.getRole();
+        this.context = context;
         this.mainApp = mainApp;
 
         // --- SIDEBAR (PANEL BOCZNY) ---
@@ -83,7 +90,7 @@ public class MainLayout extends BorderPane {
         sidebar.getChildren().add(languageBox);
 
         // Przycisk wylogowania
-        Button logoutBtn = createNavButton("logout", () -> mainApp.showLogin());
+        Button logoutBtn = createNavButton("logout", () -> mainApp.logout());
         logoutBtn.setStyle("-fx-background-color: #ef4444; -fx-text-fill: white; -fx-cursor: hand; -fx-font-weight: bold;");
         sidebar.getChildren().add(logoutBtn);
 
@@ -105,20 +112,20 @@ public class MainLayout extends BorderPane {
         sidebar.getChildren().addAll(
                 createNavButton("dashboard", () -> setContent(new DashboardView(this.role, this))),
                 createNavButton("schedule", () -> setContent(new ScheduleView())),
-                createNavButton("grades", () -> setContent(new GradesView())),
-                createNavButton("messages", () -> setContent(new MessagesView())),
-                createNavButton("requests", () -> setContent(new ApplicationsView())),
-                createNavButton("payments", () -> setContent(new PaymentsView())),
-                createNavButton("tickets", () -> setContent(new TicketsView())) // Tymczasowo podpięte pod istniejący ThesisView
+                createNavButton("grades", () -> setContent(new GradesView(this.currentUser, context.getGradeService()))),
+                createNavButton("messages", () -> setContent(new MessagesView(this.currentUser, context.getMessageService(), context.getAuthService()))),
+                createNavButton("requests", () -> setContent(new ApplicationsView(this.currentUser, context.getRequestService()))),
+                createNavButton("payments", () -> setContent(new PaymentsView(this.currentUser, context.getPaymentService()))),
+                createNavButton("tickets", () -> setContent(new TicketsView(this.currentUser, context.getServiceTicketService())))
         );
     }
 
     private void addLecturerMenu(VBox sidebar) {
         sidebar.getChildren().addAll(
                 createNavButton("dashboard", () -> setContent(new DashboardView(this.role, this))),
-                createNavButton("grades", () -> setContent(new LecturerGradesView())),
-                createNavButton("messages", () -> setContent(new LecturerMessagesView())),
-                createNavButton("course", () -> setContent(new LecturerCoursesView(this))),
+                createNavButton("grades", () -> setContent(new LecturerGradesView(this.currentUser, context.getGradeService()))),
+                createNavButton("messages", () -> setContent(new LecturerMessagesView(this.currentUser, context.getMessageService(), context.getAuthService()))),
+                createNavButton("course", () -> setContent(new LecturerCoursesView(this.currentUser, context.getCourseService()))),
                 createNavButton("schedule", () -> setContent(new ScheduleView()))
         );
     }
@@ -126,15 +133,27 @@ public class MainLayout extends BorderPane {
     private void addAdminMenu(VBox sidebar) {
         sidebar.getChildren().addAll(
                 createNavButton("dashboard", () -> setContent(new DashboardView(this.role, this))),
-                createNavButton("users", () -> setContent(new UserManagementView())),
-                createNavButton("employees", () -> setContent(new EmployeeListView())),
+                createNavButton("users", () -> setContent(new UserManagementView(context.getAuthService()))),
+                createNavButton("employees", () -> setContent(new EmployeeListView(context.getEmployeeService()))),
                 createNavButton("schedule", () -> setContent(new AdminScheduleView())),
-                createNavButton("requests", () -> setContent(new SystemRequestsView()))
+                createNavButton("requests", () -> setContent(new SystemRequestsView(context.getRequestService())))
         );
     }
 
     public void setContent(Node node) {
         contentArea.getChildren().setAll(node);
+    }
+
+    public User getCurrentUser() {
+        return currentUser;
+    }
+
+    public ApplicationContext getContext() {
+        return context;
+    }
+
+    public RequestService getRequestService() {
+        return context.getRequestService();
     }
 
     /**
