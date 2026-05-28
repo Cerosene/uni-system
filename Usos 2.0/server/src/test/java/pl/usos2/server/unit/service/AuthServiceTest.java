@@ -6,7 +6,10 @@ import org.junit.jupiter.api.Test;
 import pl.usos2.server.model.enumtype.Semester;
 import pl.usos2.server.model.user.Administrator;
 import pl.usos2.server.model.user.Student;
+import pl.usos2.server.service.audit.AuditLogService;
 import pl.usos2.server.service.auth.AuthService;
+import pl.usos2.server.unit.fake.FakeAuditLogDao;
+import pl.usos2.server.unit.fake.FakeUserDao;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -17,7 +20,7 @@ class AuthServiceTest {
 
     @BeforeEach
     void setUp() {
-        authService = new AuthService();
+        authService = new AuthService(new FakeUserDao(), new AuditLogService(new FakeAuditLogDao()));
         student = new Student(
                 1L,
                 "Mateusz",

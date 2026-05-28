@@ -13,16 +13,53 @@ import pl.usos2.server.service.request.RequestService;
 
 public class ApplicationContext {
 
-    private final AuthService authService = new AuthService();
-    private final AuditLogService auditLogService = AuditLogService.getInstance();
-    private final GradeService gradeService = new GradeService();
-    private final MessageService messageService = new MessageService();
-    private final RequestService requestService = new RequestService();
-    private final PaymentService paymentService = new PaymentService();
-    private final EmployeeService employeeService = new EmployeeService();
-    private final ServiceTicketService serviceTicketService = new ServiceTicketService();
-    private final RentalService rentalService = new RentalService();
-    private final CourseService courseService = new CourseService();
+    private final AuthService authService;
+    private final AuditLogService auditLogService;
+    private final GradeService gradeService;
+    private final MessageService messageService;
+    private final RequestService requestService;
+    private final PaymentService paymentService;
+    private final EmployeeService employeeService;
+    private final ServiceTicketService serviceTicketService;
+    private final RentalService rentalService;
+    private final CourseService courseService;
+
+    public ApplicationContext() {
+        this.auditLogService = AuditLogService.getInstance();
+        this.authService = new AuthService();
+        this.gradeService = new GradeService();
+        this.messageService = new MessageService();
+        this.requestService = new RequestService();
+        this.paymentService = new PaymentService();
+        this.employeeService = new EmployeeService();
+        this.serviceTicketService = new ServiceTicketService();
+        this.rentalService = new RentalService();
+        this.courseService = new CourseService();
+    }
+
+    public ApplicationContext(
+            AuthService authService,
+            AuditLogService auditLogService,
+            GradeService gradeService,
+            MessageService messageService,
+            RequestService requestService,
+            PaymentService paymentService,
+            EmployeeService employeeService,
+            ServiceTicketService serviceTicketService,
+            RentalService rentalService,
+            CourseService courseService
+    ) {
+        this.authService = authService;
+        this.auditLogService = auditLogService;
+        this.gradeService = gradeService;
+        this.messageService = messageService;
+        this.requestService = requestService;
+        this.paymentService = paymentService;
+        this.employeeService = employeeService;
+        this.serviceTicketService = serviceTicketService;
+        this.rentalService = rentalService;
+        this.courseService = courseService;
+    }
 
     public AuthService getAuthService() {
         return authService;
@@ -56,11 +93,11 @@ public class ApplicationContext {
         return serviceTicketService;
     }
 
-    public CourseService getCourseService() {
-        return courseService;
-    }
-
     public RentalService getRentalService() {
         return rentalService;
+    }
+
+    public CourseService getCourseService() {
+        return courseService;
     }
 }

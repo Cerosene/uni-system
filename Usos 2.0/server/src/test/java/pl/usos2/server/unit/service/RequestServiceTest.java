@@ -8,7 +8,10 @@ import pl.usos2.server.model.enumtype.RequestType;
 import pl.usos2.server.model.enumtype.Semester;
 import pl.usos2.server.model.request.Request;
 import pl.usos2.server.model.user.Student;
+import pl.usos2.server.service.audit.AuditLogService;
 import pl.usos2.server.service.request.RequestService;
+import pl.usos2.server.unit.fake.FakeAuditLogDao;
+import pl.usos2.server.unit.fake.FakeRequestDao;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -19,7 +22,7 @@ class RequestServiceTest {
 
     @BeforeEach
     void setUp() {
-        requestService = new RequestService();
+        requestService = new RequestService(new FakeRequestDao(), new AuditLogService(new FakeAuditLogDao()));
         student = new Student(
                 1L,
                 "Jan",

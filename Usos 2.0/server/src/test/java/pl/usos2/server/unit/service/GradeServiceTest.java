@@ -9,6 +9,7 @@ import pl.usos2.server.model.enumtype.Semester;
 import pl.usos2.server.model.user.Lecturer;
 import pl.usos2.server.model.user.Student;
 import pl.usos2.server.service.grade.GradeService;
+import pl.usos2.server.unit.fake.FakeGradeDao;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -21,7 +22,7 @@ class GradeServiceTest {
 
     @BeforeEach
     void setUp() {
-        gradeService = new GradeService();
+        gradeService = new GradeService(new FakeGradeDao());
 
         student = new Student(
                 1L,

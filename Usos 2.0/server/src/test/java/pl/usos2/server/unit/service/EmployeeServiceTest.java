@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import pl.usos2.server.model.enumtype.UserRole;
 import pl.usos2.server.model.user.Employee;
 import pl.usos2.server.service.admin.EmployeeService;
+import pl.usos2.server.unit.fake.FakeEmployeeDao;
 
 import java.math.BigDecimal;
 
@@ -18,7 +19,7 @@ class EmployeeServiceTest {
 
     @BeforeEach
     void setUp() {
-        employeeService = new EmployeeService();
+        employeeService = new EmployeeService(new FakeEmployeeDao());
         employee = new Employee(
                 1L,
                 "Adam",

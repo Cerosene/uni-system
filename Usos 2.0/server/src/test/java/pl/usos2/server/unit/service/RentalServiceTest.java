@@ -6,7 +6,10 @@ import org.junit.jupiter.api.Test;
 import pl.usos2.server.model.enumtype.Semester;
 import pl.usos2.server.model.rental.Rental;
 import pl.usos2.server.model.user.Student;
+import pl.usos2.server.service.audit.AuditLogService;
 import pl.usos2.server.service.rental.RentalService;
+import pl.usos2.server.unit.fake.FakeAuditLogDao;
+import pl.usos2.server.unit.fake.FakeRentalDao;
 
 import java.time.LocalDate;
 
@@ -19,7 +22,7 @@ class RentalServiceTest {
 
     @BeforeEach
     void setUp() {
-        rentalService = new RentalService();
+        rentalService = new RentalService(new FakeRentalDao(), new AuditLogService(new FakeAuditLogDao()));
         student = new Student(
                 1L,
                 "Kasia",
@@ -113,17 +116,21 @@ class RentalServiceTest {
     void shouldExtendReturnDate() {
         System.out.println("Test: przedłużenie terminu zwrotu");
 
+        LocalDate rentalDate = LocalDate.of(2026, 4, 1);
+        LocalDate originalReturnDate = LocalDate.of(2026, 5, 1);
+        LocalDate extendedReturnDate = LocalDate.of(2026, 5, 10);
+
         rentalService.createRental(
                 2L,
                 student,
                 "Laptop Dell",
-                LocalDate.now(),
-                LocalDate.of(2026, 5, 1)
+                rentalDate,
+                originalReturnDate
         );
 
-        rentalService.extendReturnDate(2L, LocalDate.of(2026, 5, 10));
+        rentalService.extendReturnDate(2L, extendedReturnDate);
 
-        assertEquals(LocalDate.of(2026, 5, 10), rentalService.findById(2L).getReturnDate());
+        assertEquals(extendedReturnDate, rentalService.findById(2L).getReturnDate());
     }
 
     @Test
@@ -131,16 +138,19 @@ class RentalServiceTest {
     void shouldThrowExceptionWhenNewReturnDateIsNotLater() {
         System.out.println("Test: blokada niepoprawnego przedłużenia terminu");
 
+        LocalDate rentalDate = LocalDate.of(2026, 4, 1);
+        LocalDate returnDate = LocalDate.of(2026, 5, 10);
+
         rentalService.createRental(
                 2L,
                 student,
                 "Laptop Dell",
-                LocalDate.now(),
-                LocalDate.of(2026, 5, 10)
+                rentalDate,
+                returnDate
         );
 
         assertThrows(IllegalArgumentException.class,
-                () -> rentalService.extendReturnDate(2L, LocalDate.of(2026, 5, 10)));
+                () -> rentalService.extendReturnDate(2L, returnDate));
     }
 
     @Test

@@ -6,7 +6,14 @@ import org.junit.jupiter.api.Test;
 import pl.usos2.server.model.academic.Course;
 import pl.usos2.server.model.user.Lecturer;
 import pl.usos2.server.model.enumtype.UserRole;
+import pl.usos2.server.service.audit.AuditLogService;
 import pl.usos2.server.service.course.CourseService;
+import pl.usos2.server.unit.fake.FakeAuditLogDao;
+import pl.usos2.server.unit.fake.FakeCourseDao;
+import pl.usos2.server.unit.fake.FakeCourseGroupDao;
+import pl.usos2.server.unit.fake.FakeEnrollmentDao;
+import pl.usos2.server.model.academic.StudentGroup;
+import pl.usos2.server.model.user.Student;
 
 import java.math.BigDecimal;
 
@@ -19,7 +26,12 @@ class CourseServiceTest {
 
     @BeforeEach
     void setUp() {
-        courseService = new CourseService();
+        courseService = new CourseService(
+                new FakeCourseDao(),
+                new FakeCourseGroupDao(),
+                new FakeEnrollmentDao(),
+                new AuditLogService(new FakeAuditLogDao())
+        );
         lecturer = new Lecturer(
                 1L,
                 "Tomasz",
@@ -88,5 +100,29 @@ class CourseServiceTest {
 
         assertEquals(1, courseService.getCoursesForLecturer(lecturer).size());
         assertEquals("CS301", courseService.getCoursesForLecturer(lecturer).get(0).getCode());
+    }
+
+    @Test
+    @DisplayName("getStudentsForGroup should return students enrolled in the group")
+    void getStudentsForGroup_shouldReturnStudentsEnrolledInGroup() {
+        Course course = new Course(1L, "Systemy Operacyjne", "CS303", 6, lecturer);
+        courseService.addCourse(course);
+        StudentGroup group = new StudentGroup(1L, "Grupa A", course, lecturer);
+        courseService.addGroup(group);
+
+        Student student = new Student(
+                10L,
+                "Anna",
+                "Nowak",
+                "anna@test.pl",
+                "password123",
+                "S10",
+                "Informatyka",
+                pl.usos2.server.model.enumtype.Semester.FIRST
+        );
+        courseService.enrollStudentToGroup(student, group);
+
+        assertEquals(1, courseService.getStudentsForGroup(group.getId()).size());
+        assertEquals(10L, courseService.getStudentsForGroup(group.getId()).get(0).getId());
     }
 }

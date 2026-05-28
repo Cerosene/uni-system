@@ -4,14 +4,58 @@ import org.junit.jupiter.api.Test;
 import pl.usos2.server.config.ApplicationContext;
 import pl.usos2.server.config.DemoDataInitializer;
 import pl.usos2.server.model.enumtype.UserRole;
+import pl.usos2.server.service.admin.EmployeeService;
+import pl.usos2.server.service.audit.AuditLogService;
+import pl.usos2.server.service.auth.AuthService;
+import pl.usos2.server.service.course.CourseService;
+import pl.usos2.server.service.finance.PaymentService;
+import pl.usos2.server.service.grade.GradeService;
+import pl.usos2.server.service.maintenance.ServiceTicketService;
+import pl.usos2.server.service.message.MessageService;
+import pl.usos2.server.service.rental.RentalService;
+import pl.usos2.server.service.request.RequestService;
+import pl.usos2.server.unit.fake.*;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class DemoDataInitializerTest {
 
+    private ApplicationContext buildContextWithFakes() {
+        FakeAuditLogDao fakeAuditLogDao = new FakeAuditLogDao();
+        AuditLogService auditLogService = new AuditLogService(fakeAuditLogDao);
+
+        AuthService authService = new AuthService(new FakeUserDao(), auditLogService);
+        GradeService gradeService = new GradeService(new FakeGradeDao());
+        MessageService messageService = new MessageService(new FakeMessageDao());
+        RequestService requestService = new RequestService(new FakeRequestDao(), auditLogService);
+        PaymentService paymentService = new PaymentService(new FakePaymentDao(), auditLogService);
+        EmployeeService employeeService = new EmployeeService(new FakeEmployeeDao());
+        ServiceTicketService serviceTicketService = new ServiceTicketService(new FakeServiceTicketDao(), auditLogService);
+        RentalService rentalService = new RentalService(new FakeRentalDao(), auditLogService);
+        CourseService courseService = new CourseService(
+                new FakeCourseDao(),
+                new FakeCourseGroupDao(),
+                new FakeEnrollmentDao(),
+                auditLogService
+        );
+
+        return new ApplicationContext(
+                authService,
+                auditLogService,
+                gradeService,
+                messageService,
+                requestService,
+                paymentService,
+                employeeService,
+                serviceTicketService,
+                rentalService,
+                courseService
+        );
+    }
+
     @Test
     void shouldInitializeDemoDataForGui() {
-        ApplicationContext context = new ApplicationContext();
+        ApplicationContext context = buildContextWithFakes();
 
         DemoDataInitializer.initialize(context);
 
@@ -30,7 +74,7 @@ class DemoDataInitializerTest {
 
     @Test
     void shouldCreateCorrectNumberOfUsers() {
-        ApplicationContext context = new ApplicationContext();
+        ApplicationContext context = buildContextWithFakes();
 
         DemoDataInitializer.initialize(context);
 
@@ -42,7 +86,7 @@ class DemoDataInitializerTest {
 
     @Test
     void shouldCreateCoursesWithValidData() {
-        ApplicationContext context = new ApplicationContext();
+        ApplicationContext context = buildContextWithFakes();
 
         DemoDataInitializer.initialize(context);
 
@@ -66,7 +110,7 @@ class DemoDataInitializerTest {
 
     @Test
     void shouldCreatePaymentsWithValidData() {
-        ApplicationContext context = new ApplicationContext();
+        ApplicationContext context = buildContextWithFakes();
 
         DemoDataInitializer.initialize(context);
 
@@ -79,7 +123,7 @@ class DemoDataInitializerTest {
 
     @Test
     void shouldCreateMessagesWithValidData() {
-        ApplicationContext context = new ApplicationContext();
+        ApplicationContext context = buildContextWithFakes();
 
         DemoDataInitializer.initialize(context);
 
@@ -93,7 +137,7 @@ class DemoDataInitializerTest {
 
     @Test
     void shouldAllUsersBeActive() {
-        ApplicationContext context = new ApplicationContext();
+        ApplicationContext context = buildContextWithFakes();
 
         DemoDataInitializer.initialize(context);
 

@@ -9,6 +9,7 @@ import pl.usos2.server.model.request.Message;
 import pl.usos2.server.model.user.Lecturer;
 import pl.usos2.server.model.user.Student;
 import pl.usos2.server.service.message.MessageService;
+import pl.usos2.server.unit.fake.FakeMessageDao;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -20,7 +21,7 @@ class MessageServiceTest {
 
     @BeforeEach
     void setUp() {
-        messageService = new MessageService();
+        messageService = new MessageService(new FakeMessageDao());
 
         student = new Student(
                 1L,

@@ -6,7 +6,10 @@ import org.junit.jupiter.api.Test;
 import pl.usos2.server.model.enumtype.Semester;
 import pl.usos2.server.model.finance.Payment;
 import pl.usos2.server.model.user.Student;
+import pl.usos2.server.service.audit.AuditLogService;
 import pl.usos2.server.service.finance.PaymentService;
+import pl.usos2.server.unit.fake.FakeAuditLogDao;
+import pl.usos2.server.unit.fake.FakePaymentDao;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -20,7 +23,7 @@ class PaymentServiceTest {
 
     @BeforeEach
     void setUp() {
-        paymentService = new PaymentService();
+        paymentService = new PaymentService(new FakePaymentDao(), new AuditLogService(new FakeAuditLogDao()));
         student = new Student(
                 1L,
                 "Jan",

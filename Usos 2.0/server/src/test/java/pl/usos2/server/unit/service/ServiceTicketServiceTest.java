@@ -8,7 +8,10 @@ import pl.usos2.server.model.enumtype.ServiceTicketStatus;
 import pl.usos2.server.model.service.ServiceTicket;
 import pl.usos2.server.model.user.Administrator;
 import pl.usos2.server.model.user.Student;
+import pl.usos2.server.service.audit.AuditLogService;
 import pl.usos2.server.service.maintenance.ServiceTicketService;
+import pl.usos2.server.unit.fake.FakeAuditLogDao;
+import pl.usos2.server.unit.fake.FakeServiceTicketDao;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -21,7 +24,7 @@ class ServiceTicketServiceTest {
 
     @BeforeEach
     void setUp() {
-        serviceTicketService = new ServiceTicketService();
+        serviceTicketService = new ServiceTicketService(new FakeServiceTicketDao(), new AuditLogService(new FakeAuditLogDao()));
         student = new Student(
                 1L, "Kasia", "Nowak", "kasia@test.pl", "haslo123", "s22222", "Informatyka", Semester.FOURTH
         );

@@ -118,6 +118,19 @@ public class CourseService {
         return groups;
     }
 
+    public List<Student> getStudentsForGroup(Long groupId) {
+        ValidationUtils.requireNotNull(groupId, "Group id cannot be null.");
+
+        if (!courseGroupDao.existsById(groupId)) {
+            throw new IllegalArgumentException("Group not found.");
+        }
+
+        List<Student> students = enrollmentDao.findStudentsByGroupId(groupId);
+        logger.info("[DIAGNOSTIC] Group students loaded from Oracle. groupId=" + groupId
+                + ", count=" + students.size());
+        return students;
+    }
+
     public int countActiveStudentsForLecturer(Lecturer lecturer) {
         ValidationUtils.requireNotNull(lecturer, "Lecturer cannot be null.");
         ValidationUtils.requireNotNull(lecturer.getId(), "Lecturer id cannot be null.");
