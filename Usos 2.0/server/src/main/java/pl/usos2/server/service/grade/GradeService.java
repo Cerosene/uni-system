@@ -1,20 +1,27 @@
 package pl.usos2.server.service.grade;
 
+import pl.usos2.server.dao.grade.GradeDao;
+import pl.usos2.server.dao.grade.JdbcGradeDao;
 import pl.usos2.server.model.academic.Course;
 import pl.usos2.server.model.academic.Grade;
 import pl.usos2.server.model.user.Lecturer;
 import pl.usos2.server.model.user.Student;
 import pl.usos2.server.util.ValidationUtils;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
 
 public class GradeService {
     private static final Logger logger = Logger.getLogger(GradeService.class.getName());
+    private final GradeDao gradeDao;
 
-    private final List<Grade> grades = new ArrayList<>();
-    private long nextGradeId = 1L;
+    public GradeService() {
+        this(new JdbcGradeDao());
+    }
+
+    public GradeService(GradeDao gradeDao) {
+        this.gradeDao = gradeDao;
+    }
 
     public Grade addGrade(Student student, Course course, Lecturer lecturer, double value, String description) {
         ValidationUtils.requireNotNull(student, "Student cannot be null.");
@@ -29,23 +36,17 @@ public class GradeService {
 
         String normalizedDescription = description.trim();
 
-        boolean duplicateExists = grades.stream()
-                .anyMatch(grade ->
-                        grade.getStudent().getId().equals(student.getId())
-                                && grade.getCourse().getId().equals(course.getId())
-                                && grade.getDescription().equalsIgnoreCase(normalizedDescription)
-                );
+        boolean duplicateExists = gradeDao.existsDuplicate(student.getId(), course.getId(), normalizedDescription);
 
         if (duplicateExists) {
             logger.warning("Cannot add grade. Duplicate grade entry for student: " + student.getFullName());
             throw new IllegalArgumentException("Similar grade already exists for this student and course.");
         }
 
-        Grade grade = new Grade(nextGradeId++, student, course, lecturer, value, normalizedDescription);
-        grades.add(grade);
+        Grade grade = gradeDao.save(student.getId(), course.getId(), lecturer.getId(), value, normalizedDescription);
 
-        logger.info("Added grade " + value + " for student: " + student.getFullName()
-                + ", course: " + course.getCode());
+        logger.info("Added grade " + value + " for student: " + student.getFullName() + ", course: " + course.getCode());
+        logger.info("[DIAGNOSTIC] Grade add persisted in Oracle. gradeId=" + grade.getId());
         return grade;
     }
 
@@ -55,48 +56,55 @@ public class GradeService {
 
         validateGradeValue(newValue);
 
+        Grade updated = gradeDao.update(grade.getId(), newValue, newDescription.trim());
+
+        // Keep behavior from previous in-memory implementation for existing UI references.
         grade.setValue(newValue);
         grade.setDescription(newDescription.trim());
 
         logger.info("Updated grade for student: " + grade.getStudent().getFullName()
                 + ", new value: " + newValue);
+        logger.info("[DIAGNOSTIC] Grade update persisted in Oracle. gradeId=" + updated.getId());
         return grade;
     }
 
     public Grade findById(Long gradeId) {
         ValidationUtils.requireNotNull(gradeId, "Grade id cannot be null.");
 
-        return grades.stream()
-                .filter(grade -> gradeId.equals(grade.getId()))
-                .findFirst()
+        Grade grade = gradeDao.findById(gradeId)
                 .orElseThrow(() -> new IllegalArgumentException("Grade not found."));
+        logger.info("[DIAGNOSTIC] Grade loaded from Oracle. gradeId=" + gradeId);
+        return grade;
     }
 
     public List<Grade> getGradesForStudent(Student student) {
         ValidationUtils.requireNotNull(student, "Student cannot be null.");
         ValidationUtils.requireNotNull(student.getId(), "Student id cannot be null.");
 
-        return grades.stream()
-                .filter(grade -> grade.getStudent().getId().equals(student.getId()))
-                .toList();
+        List<Grade> grades = gradeDao.findByStudentId(student.getId());
+        logger.info("[DIAGNOSTIC] Student grades fetched from Oracle. studentId=" + student.getId()
+                + ", count=" + grades.size());
+        return grades;
     }
 
     public List<Grade> getGradesForCourse(Course course) {
         ValidationUtils.requireNotNull(course, "Course cannot be null.");
         ValidationUtils.requireNotNull(course.getId(), "Course id cannot be null.");
 
-        return grades.stream()
-                .filter(grade -> grade.getCourse().getId().equals(course.getId()))
-                .toList();
+        List<Grade> grades = gradeDao.findBySubjectId(course.getId());
+        logger.info("[DIAGNOSTIC] Course grades fetched from Oracle. subjectId=" + course.getId()
+                + ", count=" + grades.size());
+        return grades;
     }
 
     public List<Grade> getGradesForLecturer(Lecturer lecturer) {
         ValidationUtils.requireNotNull(lecturer, "Lecturer cannot be null.");
         ValidationUtils.requireNotNull(lecturer.getId(), "Lecturer id cannot be null.");
 
-        return grades.stream()
-                .filter(grade -> grade.getLecturer().getId().equals(lecturer.getId()))
-                .toList();
+        List<Grade> grades = gradeDao.findByLecturerId(lecturer.getId());
+        logger.info("[DIAGNOSTIC] Lecturer grades fetched from Oracle. lecturerId=" + lecturer.getId()
+                + ", count=" + grades.size());
+        return grades;
     }
 
     public double getAverageGradeForStudent(Student student) {
@@ -116,7 +124,9 @@ public class GradeService {
     }
 
     public List<Grade> getAllGrades() {
-        return new ArrayList<>(grades);
+        List<Grade> grades = gradeDao.findAll();
+        logger.info("[DIAGNOSTIC] All grades fetched from Oracle. count=" + grades.size());
+        return grades;
     }
 
     private void validateGradeValue(double value) {

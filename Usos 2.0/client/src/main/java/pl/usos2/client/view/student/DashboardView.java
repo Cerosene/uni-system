@@ -1,34 +1,44 @@
 package pl.usos2.client.view.student;
 
 import javafx.geometry.Insets;
-import javafx.geometry.Pos;
 import javafx.scene.Node;
-import javafx.scene.control.*;
-import javafx.scene.layout.*;
+import javafx.scene.control.Button;
+import javafx.scene.control.Label;
+import javafx.scene.control.ScrollPane;
+import javafx.scene.layout.FlowPane;
+import javafx.scene.layout.Pane;
+import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
-import pl.usos2.server.model.enumtype.UserRole;
+import pl.usos2.client.util.MockDataProvider;
+import pl.usos2.client.view.admin.AdminPaymentsView;
+import pl.usos2.client.view.admin.AdminScheduleView;
+import pl.usos2.client.view.admin.AdminTicketsView;
+import pl.usos2.client.view.admin.EmployeeListView;
+import pl.usos2.client.view.admin.SystemRequestsView;
+import pl.usos2.client.view.admin.UserManagementView;
 import pl.usos2.client.view.layout.MainLayout;
-import pl.usos2.client.view.student.*;
 import pl.usos2.client.view.lecturer.LecturerCoursesView;
 import pl.usos2.client.view.lecturer.LecturerGradesView;
 import pl.usos2.client.view.lecturer.LecturerMessagesView;
-import pl.usos2.client.view.admin.*;
-import pl.usos2.client.util.MockDataProvider;
+import pl.usos2.server.model.academic.StudentGroup;
+import pl.usos2.server.model.enumtype.ServiceTicketStatus;
+import pl.usos2.server.model.enumtype.UserRole;
+import pl.usos2.server.model.user.Lecturer;
+import pl.usos2.server.model.user.Student;
 
-/**
- * Widok panelu głównego (Dashboard) dostosowujący się dynamicznie do roli zalogowanego użytkownika.
- * Obsługuje dynamiczne przełączanie widoków w MainLayout poprzez interfejs funkcyjny Consumer.
- */
+import java.math.BigDecimal;
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
+import java.util.Locale;
+import java.util.stream.Collectors;
+
 public class DashboardView extends ScrollPane {
     private final MainLayout mainLayout;
     private final UserRole role;
-
-    // Kontener główny dla wszystkich elementów widoku panelu sterowania
     private final VBox mainContainer;
 
-    // Węzły UI wymagające dynamicznej aktualizacji tekstów po zmianie języka (i18n)
     private Label welcomeLabel;
     private Label infoLabel;
     private Label statsTitleLabel;
@@ -45,13 +55,8 @@ public class DashboardView extends ScrollPane {
         mainContainer.setPadding(new Insets(30));
         mainContainer.setStyle("-fx-background-color: #f8fafc;");
 
-        // 1. Sekcja powitalna (Header)
         createHeaderSection();
-
-        // 2. Sekcja statystyk (Cards) - zależna od roli
         createStatsSection();
-
-        // 3. Sekcja szybkich działań (Quick Actions) - zintegrowana z metodą setContent z MainLayout
         createQuickActionsSection();
 
         setContent(mainContainer);
@@ -85,22 +90,36 @@ public class DashboardView extends ScrollPane {
         FlowPane statsGrid = new FlowPane(20, 20);
 
         if (role == UserRole.STUDENT) {
+            Student student = (Student) mainLayout.getCurrentUser();
+            String averageGradeValue = calculateAverageGradeLabel();
+            String ectsValue = calculateEctsLabel(student);
+            String unpaidBalanceValue = calculateUnpaidBalanceLabel(student);
             statsGrid.getChildren().addAll(
-                    createStatCard("dash_stat_gpa", "4.52", "dash_stat_gpa_sub", "#3b82f6"),
-                    createStatCard("dash_stat_ects", "30 / 30", "dash_stat_ects_sub", "#10b981"),
-                    createStatCard("dash_stat_payments", "0.00 PLN", "dash_stat_payments_sub", "#ef4444")
+                    createStatCard("dash_stat_gpa", averageGradeValue, "dash_stat_gpa_sub", "#3b82f6"),
+                    createStatCard("dash_stat_ects", ectsValue, "dash_stat_ects_sub", "#10b981"),
+                    createStatCard("dash_stat_payments", unpaidBalanceValue, "dash_stat_payments_sub", "#ef4444")
             );
         } else if (role == UserRole.LECTURER) {
+            Lecturer lecturer = (Lecturer) mainLayout.getCurrentUser();
+            String coursesCount = String.valueOf(mainLayout.getContext().getCourseService().getCoursesForLecturer(lecturer).size());
+            String studentsCount = String.valueOf(mainLayout.getContext().getCourseService().countActiveStudentsForLecturer(lecturer));
+            String unreadMessagesCount = String.valueOf(mainLayout.getContext().getMessageService().getUnreadInbox(lecturer).size());
             statsGrid.getChildren().addAll(
-                    createStatCard("dash_stat_courses", "3", "dash_stat_courses_sub", "#8b5cf6"),
-                    createStatCard("dash_stat_students", "185", "dash_stat_students_sub", "#f59e0b"),
-                    createStatCard("dash_stat_messages", "5", "dash_stat_messages_sub", "#06b6d4")
+                    createStatCard("dash_stat_courses", coursesCount, "dash_stat_courses_sub", "#8b5cf6"),
+                    createStatCard("dash_stat_students", studentsCount, "dash_stat_students_sub", "#f59e0b"),
+                    createStatCard("dash_stat_messages", unreadMessagesCount, "dash_stat_messages_sub", "#06b6d4")
             );
         } else if (role == UserRole.ADMINISTRATOR) {
+            String totalUsers = String.valueOf(mainLayout.getContext().getAuthService().getAllUsers().size());
+            String pendingRequests = String.valueOf(mainLayout.getContext().getRequestService().getPendingRequests().size());
+            int openOrInProgress = mainLayout.getContext().getServiceTicketService().getTicketsByStatus(ServiceTicketStatus.OPEN).size()
+                    + mainLayout.getContext().getServiceTicketService().getTicketsByStatus(ServiceTicketStatus.IN_PROGRESS).size();
+            String openTickets = String.valueOf(openOrInProgress);
+
             statsGrid.getChildren().addAll(
-                    createStatCard("dash_stat_total_users", "2,450", "dash_stat_total_users_sub", "#3b82f6"),
-                    createStatCard("dash_stat_active_req", "12", "dash_stat_active_req_sub", "#ec4899"),
-                    createStatCard("dash_stat_system_status", "ONLINE", "dash_stat_system_status_sub", "#10b981")
+                    createStatCard("dash_stat_total_users", totalUsers, "dash_stat_total_users_sub", "#3b82f6"),
+                    createStatCard("dash_stat_active_req", pendingRequests, "dash_stat_active_req_sub", "#ec4899"),
+                    createStatCard("dash_stat_system_status", openTickets, "dash_stat_system_status_sub", "#10b981")
             );
         }
 
@@ -108,9 +127,6 @@ public class DashboardView extends ScrollPane {
         mainContainer.getChildren().add(statsWrapper);
     }
 
-    /**
-     * Buduje sekcję szybkich przycisków akcji, wywołując metodę setContent z instancji MainLayout.
-     */
     private void createQuickActionsSection() {
         VBox actionsWrapper = new VBox(15);
 
@@ -121,28 +137,30 @@ public class DashboardView extends ScrollPane {
 
         FlowPane actionsGrid = new FlowPane(15, 15);
 
-        // Mapowanie przycisków bezpośrednio na wywołania setContent() z przekazaniem instancji widoków
         if (role == UserRole.STUDENT) {
             actionsGrid.getChildren().addAll(
-                    createActionButton("nav_grades", " Oceny", "#3b82f6", () -> mainLayout.setContent(new GradesView(mainLayout.getCurrentUser(), mainLayout.getContext().getGradeService()))),
-                    createActionButton("nav_schedule", " Plan zajęć", "#10b981", () -> mainLayout.setContent(new ScheduleView())),
-                    createActionButton("nav_applications", " Wnioski", "#8b5cf6", () -> mainLayout.setContent(new ApplicationsView(mainLayout.getCurrentUser(), mainLayout.getContext().getRequestService()))),
-                    createActionButton("nav_payments", " Płatności", "#ef4444", () -> mainLayout.setContent(new PaymentsView(mainLayout.getCurrentUser(), mainLayout.getContext().getPaymentService()))),
-                    createActionButton("nav_messages", " Wiadomości", "#06b6d4", () -> mainLayout.setContent(new MessagesView(mainLayout.getCurrentUser(), mainLayout.getContext().getMessageService(), mainLayout.getContext().getAuthService()))),
-                    createActionButton("nav_thesis", " Praca dyplomowa", "#f59e0b", () -> mainLayout.setContent(new TicketsView(mainLayout.getCurrentUser(), mainLayout.getContext().getServiceTicketService())))
+                    createActionButton("nav_grades", "Oceny", "#3b82f6", () -> mainLayout.setContent(new GradesView(mainLayout.getCurrentUser(), mainLayout.getContext().getGradeService()))),
+                    createActionButton("nav_schedule", "Plan zajęć", "#10b981", () -> mainLayout.setContent(new ScheduleView(mainLayout.getCurrentUser(), mainLayout.getContext().getCourseService()))),
+                    createActionButton("nav_applications", "Wnioski", "#8b5cf6", () -> mainLayout.setContent(new ApplicationsView(mainLayout.getCurrentUser(), mainLayout.getContext().getRequestService()))),
+                    createActionButton("nav_payments", "Płatności", "#ef4444", () -> mainLayout.setContent(new PaymentsView(mainLayout.getCurrentUser(), mainLayout.getContext().getPaymentService()))),
+                    createActionButton("nav_messages", "Wiadomości", "#06b6d4", () -> mainLayout.setContent(new MessagesView(mainLayout.getCurrentUser(), mainLayout.getContext().getMessageService(), mainLayout.getContext().getAuthService()))),
+                    createActionButton("nav_tickets", "Zgłoszenia", "#f59e0b", () -> mainLayout.setContent(new TicketsView(mainLayout.getCurrentUser(), mainLayout.getContext().getServiceTicketService())))
             );
         } else if (role == UserRole.LECTURER) {
             actionsGrid.getChildren().addAll(
-                    createActionButton("nav_my_courses", " Moje kursy", "#8b5cf6", () -> mainLayout.setContent(new LecturerCoursesView(mainLayout.getCurrentUser(), mainLayout.getContext().getCourseService()))),
-                    createActionButton("nav_add_grades", " Wystaw oceny", "#10b981", () -> mainLayout.setContent(new LecturerGradesView(mainLayout.getCurrentUser(), mainLayout.getContext().getGradeService()))),
-                    createActionButton("nav_messages", " Wiadomości", "#06b6d4", () -> mainLayout.setContent(new LecturerMessagesView(mainLayout.getCurrentUser(), mainLayout.getContext().getMessageService(), mainLayout.getContext().getAuthService())))
+                    createActionButton("nav_my_courses", "Moje kursy", "#8b5cf6", () -> mainLayout.setContent(new LecturerCoursesView(mainLayout.getCurrentUser(), mainLayout.getContext().getCourseService()))),
+                    createActionButton("nav_add_grades", "Wystaw oceny", "#10b981", () -> mainLayout.setContent(new LecturerGradesView(mainLayout.getCurrentUser(), mainLayout.getContext().getGradeService()))),
+                    createActionButton("nav_messages", "Wiadomości", "#06b6d4", () -> mainLayout.setContent(new LecturerMessagesView(mainLayout.getCurrentUser(), mainLayout.getContext().getMessageService(), mainLayout.getContext().getAuthService()))),
+                    createActionButton("nav_schedule", "Plan zajęć", "#10b981", () -> mainLayout.setContent(new ScheduleView(mainLayout.getCurrentUser(), mainLayout.getContext().getCourseService())))
             );
         } else if (role == UserRole.ADMINISTRATOR) {
             actionsGrid.getChildren().addAll(
-                    createActionButton("nav_manage_users", " Użytkownicy", "#2563eb", () -> mainLayout.setContent(new UserManagementView(mainLayout.getContext().getAuthService()))),
-                    createActionButton("nav_manage_schedule", " Edycja planu", "#f59e0b", () -> mainLayout.setContent(new AdminScheduleView())),
-                    createActionButton("nav_system_requests", " Wnioski systemowe", "#ec4899", () -> mainLayout.setContent(new SystemRequestsView(mainLayout.getContext().getRequestService()))),
-                    createActionButton("nav_employee_dir", " Pracownicy", "#64748b", () -> mainLayout.setContent(new EmployeeListView(mainLayout.getContext().getEmployeeService())))
+                    createActionButton("nav_manage_users", "Użytkownicy", "#2563eb", () -> mainLayout.setContent(new UserManagementView(mainLayout.getContext().getAuthService()))),
+                    createActionButton("nav_manage_schedule", "Edycja planu", "#f59e0b", () -> mainLayout.setContent(new AdminScheduleView(mainLayout.getContext().getCourseService()))),
+                    createActionButton("nav_admin_requests", "Wnioski", "#ec4899", () -> mainLayout.setContent(new SystemRequestsView(mainLayout.getContext().getRequestService()))),
+                    createActionButton("nav_admin_tickets", "Zgłoszenia", "#f97316", () -> mainLayout.setContent(new AdminTicketsView(mainLayout.getContext().getServiceTicketService()))),
+                    createActionButton("nav_admin_payments", "Płatności", "#14b8a6", () -> mainLayout.setContent(new AdminPaymentsView(mainLayout.getContext().getPaymentService()))),
+                    createActionButton("nav_employee_dir", "Pracownicy", "#64748b", () -> mainLayout.setContent(new EmployeeListView(mainLayout.getContext().getEmployeeService())))
             );
         }
 
@@ -199,23 +217,62 @@ public class DashboardView extends ScrollPane {
         return btn;
     }
 
+    private String calculateAverageGradeLabel() {
+        if (!(mainLayout.getCurrentUser() instanceof Student student)) {
+            return "-";
+        }
+
+        double average = mainLayout.getContext().getGradeService().getAverageGradeForStudent(student);
+        if (average <= 0.0) {
+            return MockDataProvider.getCurrentLocale().getLanguage().equals("en") ? "No grades" : "Brak ocen";
+        }
+
+        Locale locale = MockDataProvider.getCurrentLocale().getLanguage().equals("en")
+                ? Locale.ENGLISH
+                : new Locale("pl", "PL");
+        DecimalFormat format = new DecimalFormat("0.00", new DecimalFormatSymbols(locale));
+        return format.format(average);
+    }
+
+    private String calculateEctsLabel(Student student) {
+        int ectsSum = mainLayout.getContext().getCourseService().getGroupsForStudent(student).stream()
+                .map(StudentGroup::getCourse)
+                .filter(course -> course != null && course.getId() != null)
+                .collect(Collectors.toMap(
+                        course -> course.getId(),
+                        course -> course,
+                        (first, second) -> first
+                ))
+                .values()
+                .stream()
+                .mapToInt(course -> Math.max(course.getEcts(), 0))
+                .sum();
+        return ectsSum + " / 210";
+    }
+
+    private String calculateUnpaidBalanceLabel(Student student) {
+        BigDecimal unpaid = mainLayout.getContext().getPaymentService().getUnpaidPaymentsForStudent(student).stream()
+                .map(payment -> payment.getAmount() == null ? BigDecimal.ZERO : payment.getAmount())
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        Locale locale = MockDataProvider.getCurrentLocale().getLanguage().equals("en")
+                ? Locale.ENGLISH
+                : new Locale("pl", "PL");
+        DecimalFormat format = new DecimalFormat("0.00", new DecimalFormatSymbols(locale));
+        return format.format(unpaid) + " PLN";
+    }
+
     public void translate() {
-        // 1. Natychmiastowe tłumaczenie głównych etykiet tekstowych nagłówka
         welcomeLabel.setText(MockDataProvider.i18n("dash_welcome") + ", " + mainLayout.getCurrentUser().getFullName() + "!");
         infoLabel.setText(MockDataProvider.i18n("dash_info_sub"));
         statsTitleLabel.setText(MockDataProvider.i18n("dash_stats_title"));
         actionsTitleLabel.setText(MockDataProvider.i18n("dash_actions_title"));
 
-        // 2. Bezpieczne przeszukiwanie kontenera głównego w poszukiwaniu siatek FlowPane
-        for (javafx.scene.Node node : mainContainer.getChildren()) {
-            if (node instanceof VBox) {
-                VBox wrapperBox = (VBox) node;
-
-                // Przeszukujemy elementy wewnątrz wrappera (np. sekcji statystyk lub szybkich akcji)
-                for (javafx.scene.Node subNode : wrapperBox.getChildren()) {
-                    if (subNode instanceof FlowPane) {
-                        // Wywołanie tłumaczenia dla grupy elementów wewnątrz siatki (FlowPane)
-                        translateGroup((FlowPane) subNode);
+        for (Node node : mainContainer.getChildren()) {
+            if (node instanceof VBox wrapperBox) {
+                for (Node subNode : wrapperBox.getChildren()) {
+                    if (subNode instanceof FlowPane flowPane) {
+                        translateGroup(flowPane);
                     }
                 }
             }
@@ -223,14 +280,11 @@ public class DashboardView extends ScrollPane {
     }
 
     private void translateGroup(FlowPane pane) {
-        for (javafx.scene.Node node : pane.getChildren()) {
-            if (node instanceof VBox && node.getUserData() instanceof String[]) {
-                String[] keys = (String[]) node.getUserData();
-                VBox card = (VBox) node;
+        for (Node node : pane.getChildren()) {
+            if (node instanceof VBox card && node.getUserData() instanceof String[] keys) {
                 int labelIndex = 0;
-                for (javafx.scene.Node inner : card.getChildren()) {
-                    if (inner instanceof Label) {
-                        Label label = (Label) inner;
+                for (Node inner : card.getChildren()) {
+                    if (inner instanceof Label label) {
                         if (labelIndex == 0) {
                             label.setText(MockDataProvider.i18n(keys[0]));
                             labelIndex++;
@@ -241,9 +295,8 @@ public class DashboardView extends ScrollPane {
                         }
                     }
                 }
-            } else if (node instanceof Button && node.getUserData() instanceof String) {
-                Button btn = (Button) node;
-                btn.setText(MockDataProvider.i18n((String) node.getUserData()));
+            } else if (node instanceof Button btn && node.getUserData() instanceof String key) {
+                btn.setText(MockDataProvider.i18n(key));
             }
         }
     }

@@ -1,131 +1,222 @@
 package pl.usos2.client.view.student;
 
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.control.Label;
-import javafx.scene.layout.*;
+import javafx.scene.layout.ColumnConstraints;
+import javafx.scene.layout.GridPane;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.RowConstraints;
+import javafx.scene.layout.StackPane;
+import javafx.scene.layout.VBox;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import pl.usos2.client.util.MockDataProvider;
+import pl.usos2.client.util.SchedulePlanStore;
+import pl.usos2.server.model.academic.StudentGroup;
+import pl.usos2.server.model.user.Lecturer;
+import pl.usos2.server.model.user.Student;
+import pl.usos2.server.model.user.User;
+import pl.usos2.server.service.course.CourseService;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
-/**
- * Widok tygodniowego planu zajęć studenta.
- * Renderuje siatkę zajęć z obsługą dynamicznego tłumaczenia i18n na język polski i angielski.
- */
 public class ScheduleView extends VBox {
 
     private final Label titleLabel;
     private final GridPane scheduleGrid;
-
-    // Lista przechowująca nagłówki dni tygodnia do dynamicznej aktualizacji
     private final List<Label> dayHeaders = new ArrayList<>();
-    // Lista przechowująca wpisy zajęć do ponownego przetłumaczenia nazw przedmiotów
-    private final List<ScheduleEntryNode> entryNodes = new ArrayList<>();
+    private final User currentUser;
+    private final CourseService courseService;
+
+    private static final String[] DAYS = {
+            "schedule_col_time", "day_monday", "day_tuesday", "day_wednesday", "day_thursday", "day_friday"
+    };
+
+    private static final String[] TIME_SLOTS = {
+            "08:00 - 09:30", "09:45 - 11:15", "11:30 - 13:00", "13:15 - 14:45", "15:00 - 16:30"
+    };
 
     public ScheduleView() {
+        this(null, null);
+    }
+
+    public ScheduleView(User currentUser, CourseService courseService) {
+        this.currentUser = currentUser;
+        this.courseService = courseService;
+
         setPadding(new Insets(30));
         setSpacing(20);
         setStyle("-fx-background-color: #f8fafc;");
 
-        // Główny tytuł ekranu
         titleLabel = new Label();
         titleLabel.setFont(Font.font("System", FontWeight.BOLD, 24));
 
         scheduleGrid = new GridPane();
-        scheduleGrid.setHgap(10);
-        scheduleGrid.setVgap(10);
+        scheduleGrid.setHgap(0);
+        scheduleGrid.setVgap(0);
+        scheduleGrid.setStyle("-fx-background-color: #cbd5e1;");
+        scheduleGrid.setMaxWidth(Double.MAX_VALUE);
+        VBox.setVgrow(scheduleGrid, Priority.ALWAYS);
 
-        // Inicjalizacja struktury tabeli planu zajęć
-        buildScheduleStructure();
+        configureGridConstraints();
+        rebuildGrid();
 
         getChildren().addAll(titleLabel, scheduleGrid);
 
-        // Pierwsze ładowanie tekstów językowych
         refreshLocalization();
-
-        // Rejestracja słuchacza globalnej zmiany języka w systemie
-        MockDataProvider.currentLocaleProperty().addListener((obs, oldLocale, newLocale) -> refreshLocalization());
+        MockDataProvider.currentLocaleProperty().addListener((obs, oldLocale, newLocale) -> {
+            refreshLocalization();
+            rebuildGrid();
+        });
     }
 
-    /**
-     * Tworzy strukturę siatki zajęć i dodaje stałe wpisy przedmiotów.
-     */
-    private void buildScheduleStructure() {
-        // Dodanie 6 kolumn (Czas + 5 dni roboczych)
-        for (int i = 0; i < 6; i++) {
-            Label dayLabel = new Label();
-            dayLabel.setFont(Font.font("System", FontWeight.BOLD, 14));
-            dayLabel.setPadding(new Insets(10));
-            dayLabel.setMinWidth(160);
-            dayLabel.setStyle("-fx-background-color: #e2e8f0; -fx-alignment: center; -fx-background-radius: 4;");
+    private void configureGridConstraints() {
+        scheduleGrid.getColumnConstraints().clear();
+        scheduleGrid.getRowConstraints().clear();
 
-            dayHeaders.add(dayLabel);
-            scheduleGrid.add(dayLabel, i, 0);
+        ColumnConstraints timeCol = new ColumnConstraints();
+        timeCol.setPercentWidth(14);
+        timeCol.setHgrow(Priority.ALWAYS);
+        scheduleGrid.getColumnConstraints().add(timeCol);
+
+        for (int i = 0; i < 5; i++) {
+            ColumnConstraints dayCol = new ColumnConstraints();
+            dayCol.setPercentWidth(17.2);
+            dayCol.setHgrow(Priority.ALWAYS);
+            scheduleGrid.getColumnConstraints().add(dayCol);
         }
 
-        // Dodawanie wpisów do planu lekcji (kolumna, wiersz, czas, klucz i18n przedmiotu, sala, kolor)
-        addScheduleEntry(1, 1, "09:00 - 10:30", "subject_algorithms", "A-301", "#dbeafe"); // Poniedziałek
-        addScheduleEntry(2, 1, "11:00 - 12:30", "subject_databases", "B-205", "#dcfce7");   // Wtorek
-        addScheduleEntry(3, 2, "10:00 - 11:30", "subject_networks", "C-102", "#f3e8ff");    // Środa
+        RowConstraints headerRow = new RowConstraints();
+        headerRow.setPercentHeight(12);
+        headerRow.setVgrow(Priority.ALWAYS);
+        scheduleGrid.getRowConstraints().add(headerRow);
+
+        for (int i = 0; i < TIME_SLOTS.length; i++) {
+            RowConstraints row = new RowConstraints();
+            row.setPercentHeight(17.6);
+            row.setVgrow(Priority.ALWAYS);
+            scheduleGrid.getRowConstraints().add(row);
+        }
     }
 
-    /**
-     * Metoda pomocnicza dodająca pojedynczy kafel zajęć do siatki planu.
-     */
-    private void addScheduleEntry(int col, int row, String time, String subjectKey, String room, String colorHex) {
-        VBox box = new VBox(5);
-        box.setPadding(new Insets(10));
-        box.setStyle("-fx-background-color: " + colorHex + "; -fx-background-radius: 6; -fx-border-color: rgba(0,0,0,0.05);");
+    private void rebuildGrid() {
+        scheduleGrid.getChildren().clear();
+        dayHeaders.clear();
 
-        Label timeLbl = new Label(time);
-        timeLbl.setFont(Font.font("System", FontWeight.SEMI_BOLD, 11));
-        timeLbl.setStyle("-fx-text-fill: #475569;");
+        for (int col = 0; col < DAYS.length; col++) {
+            Label header = new Label(MockDataProvider.i18n(DAYS[col]));
+            header.setFont(Font.font("System", FontWeight.BOLD, 13));
+            header.setWrapText(true);
+            StackPane cell = createCell(header, "-fx-background-color: #e2e8f0; -fx-border-color: #cbd5e1;");
+            scheduleGrid.add(cell, col, 0);
+            dayHeaders.add(header);
+        }
 
-        Label nameLbl = new Label();
-        nameLbl.setFont(Font.font("System", FontWeight.BOLD, 13));
-        nameLbl.setStyle("-fx-text-fill: #1e293b;");
+        for (int row = 0; row < TIME_SLOTS.length; row++) {
+            Label timeLabel = new Label(TIME_SLOTS[row]);
+            timeLabel.setFont(Font.font("System", FontWeight.SEMI_BOLD, 12));
+            timeLabel.setWrapText(true);
+            StackPane timeCell = createCell(timeLabel, "-fx-background-color: #f1f5f9; -fx-border-color: #cbd5e1;");
+            scheduleGrid.add(timeCell, 0, row + 1);
 
-        Label roomLbl = new Label(room);
-        roomLbl.setFont(Font.font("System", 11));
-        roomLbl.setStyle("-fx-text-fill: #64748b;");
+            for (int col = 1; col < DAYS.length; col++) {
+                Label empty = new Label("");
+                StackPane emptyCell = createCell(empty, "-fx-background-color: white; -fx-border-color: #e2e8f0;");
+                scheduleGrid.add(emptyCell, col, row + 1);
+            }
+        }
 
-        box.getChildren().addAll(timeLbl, nameLbl, roomLbl);
-        scheduleGrid.add(box, col, row);
+        Map<String, String> entries = buildScheduleEntriesForCurrentUser();
+        for (Map.Entry<String, String> entry : entries.entrySet()) {
+            String[] split = entry.getKey().split("_");
+            if (split.length != 2) {
+                continue;
+            }
 
-        // Zapisujemy referencję do kontenera w celu późniejszej re-translacji
-        entryNodes.add(new ScheduleEntryNode(nameLbl, subjectKey));
+            int day = Integer.parseInt(split[0]);
+            int slot = Integer.parseInt(split[1]);
+            if (day < 0 || day > 4 || slot < 0 || slot >= TIME_SLOTS.length) {
+                continue;
+            }
+
+            VBox box = new VBox(6);
+            box.setPadding(new Insets(10));
+            box.setStyle("-fx-background-color: #dbeafe; -fx-background-radius: 6; -fx-border-color: #93c5fd; -fx-border-radius: 6; -fx-border-width: 1;");
+
+            Label classLabel = new Label(entry.getValue());
+            classLabel.setWrapText(true);
+            classLabel.setFont(Font.font("System", FontWeight.BOLD, 12));
+            classLabel.setStyle("-fx-text-fill: #1e3a8a;");
+
+            box.getChildren().add(classLabel);
+            StackPane cell = new StackPane(box);
+            cell.setPadding(new Insets(8));
+            cell.setStyle("-fx-background-color: white; -fx-border-color: #e2e8f0; -fx-border-width: 1;");
+            scheduleGrid.add(cell, day + 1, slot + 1);
+        }
     }
 
-    /**
-     * Odświeża komponenty tekstowe na ekranie po zmianie języka aplikacji.
-     */
+    private StackPane createCell(Label label, String style) {
+        StackPane cell = new StackPane(label);
+        cell.setPadding(new Insets(10));
+        cell.setMinHeight(80);
+        cell.setStyle(style + " -fx-border-width: 1;");
+        StackPane.setAlignment(label, Pos.CENTER);
+        return cell;
+    }
+
+    private Map<String, String> buildScheduleEntriesForCurrentUser() {
+        Map<String, String> entries = new HashMap<>();
+        if (currentUser == null || courseService == null) {
+            return entries;
+        }
+
+        List<StudentGroup> groups = new ArrayList<>();
+        if (currentUser instanceof Student student) {
+            groups = courseService.getGroupsForStudent(student);
+        } else if (currentUser instanceof Lecturer lecturer) {
+            groups = courseService.getGroupsForLecturer(lecturer);
+        }
+
+        for (StudentGroup group : groups) {
+            Map<String, String> groupPlan = SchedulePlanStore.getPlanForGroup(group.getId());
+
+            if (groupPlan.isEmpty()) {
+                int day = (int) (group.getId() % 5);
+                int slot = (int) (group.getId() % TIME_SLOTS.length);
+                String key = day + "_" + slot;
+                entries.put(key, formatGroupEntry(group));
+                continue;
+            }
+
+            for (Map.Entry<String, String> cell : groupPlan.entrySet()) {
+                entries.put(cell.getKey(), cell.getValue());
+            }
+        }
+
+        return entries;
+    }
+
+    private String formatGroupEntry(StudentGroup group) {
+        if (group == null) {
+            return "";
+        }
+        String courseName = group.getCourse() != null ? group.getCourse().getName() : group.getName();
+        String lecturerName = group.getLecturer() != null ? group.getLecturer().getFullName() : "";
+        if (lecturerName.isBlank()) {
+            return courseName;
+        }
+        return courseName + "\n" + lecturerName;
+    }
+
     private void refreshLocalization() {
         titleLabel.setText(MockDataProvider.i18n("schedule_title_main"));
-
-        // Tablica kluczy i18n dla nagłówków kolumn siatki
-        String[] scheduleKeys = {"schedule_col_time", "day_monday", "day_tuesday", "day_wednesday", "day_thursday", "day_friday"};
         for (int i = 0; i < dayHeaders.size(); i++) {
-            dayHeaders.get(i).setText(MockDataProvider.i18n(scheduleKeys[i]));
-        }
-
-        // Tłumaczenie dynamicznych nazw przedmiotów wewnątrz planu lekcji
-        for (ScheduleEntryNode entry : entryNodes) {
-            entry.label.setText(MockDataProvider.i18n(entry.subjectKey));
-        }
-    }
-
-    /**
-     * Klasa pomocnicza przechowująca powiązanie etykiety UI z kluczem lokalizacyjnym.
-     */
-    private static class ScheduleEntryNode {
-        Label label;
-        String subjectKey;
-
-        ScheduleEntryNode(Label label, String subjectKey) {
-            this.label = label;
-            this.subjectKey = subjectKey;
+            dayHeaders.get(i).setText(MockDataProvider.i18n(DAYS[i]));
         }
     }
 }

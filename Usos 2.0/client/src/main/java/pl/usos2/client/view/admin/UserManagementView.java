@@ -5,9 +5,23 @@ import javafx.collections.ObservableList;
 import javafx.collections.transformation.FilteredList;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
-import javafx.scene.control.*;
+import javafx.scene.control.Alert;
+import javafx.scene.control.Button;
+import javafx.scene.control.ButtonBar;
+import javafx.scene.control.ButtonType;
+import javafx.scene.control.ComboBox;
+import javafx.scene.control.ChoiceDialog;
+import javafx.scene.control.Dialog;
+import javafx.scene.control.Label;
 import javafx.scene.control.PasswordField;
-import javafx.scene.layout.*;
+import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableView;
+import javafx.scene.control.TextField;
+import javafx.scene.layout.GridPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
+import javafx.scene.layout.VBox;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import pl.usos2.client.util.MockDataProvider;
@@ -19,7 +33,9 @@ import pl.usos2.server.model.user.Student;
 import pl.usos2.server.model.user.User;
 import pl.usos2.server.service.auth.AuthService;
 
-import java.util.List;
+import java.util.Comparator;
+import java.util.Locale;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 public class UserManagementView extends VBox {
@@ -28,11 +44,6 @@ public class UserManagementView extends VBox {
     private final ObservableList<UserRow> allUsers;
     private final FilteredList<UserRow> filteredUsers;
     private final TableView<UserRow> table;
-
-    private final TextField firstNameInput = new TextField();
-    private final TextField lastNameInput = new TextField();
-    private final TextField emailInput = new TextField();
-    private final PasswordField passwordInput = new PasswordField();
 
     public UserManagementView(AuthService authService) {
         this.authService = authService;
@@ -60,7 +71,7 @@ public class UserManagementView extends VBox {
 
         TextField searchField = new TextField();
         searchField.setPromptText(MockDataProvider.i18n("search_users_holder"));
-        searchField.setPrefWidth(300);
+        searchField.setPrefWidth(320);
 
         searchBar.getChildren().addAll(new Label(MockDataProvider.i18n("label_search")), searchField);
 
@@ -79,27 +90,37 @@ public class UserManagementView extends VBox {
 
         table.getColumns().addAll(idCol, nameCol, roleCol, statusCol);
 
-        allUsers = FXCollections.observableArrayList(
-                authService.getAllUsers().stream().map(UserRow::new).collect(Collectors.toList())
-        );
+        allUsers = FXCollections.observableArrayList();
         filteredUsers = new FilteredList<>(allUsers, p -> true);
         table.setItems(filteredUsers);
+        refreshUsers();
 
         searchField.textProperty().addListener((observable, oldValue, newValue) -> {
             filteredUsers.setPredicate(user -> {
-                if (newValue == null || newValue.isEmpty()) {
+                if (newValue == null || newValue.isBlank()) {
                     return true;
                 }
-                String lowerCaseFilter = newValue.toLowerCase();
-                return user.getName().toLowerCase().contains(lowerCaseFilter) ||
-                        user.getId().toLowerCase().contains(lowerCaseFilter) ||
-                        user.getRole().toLowerCase().contains(lowerCaseFilter);
+                String lower = newValue.toLowerCase(Locale.ROOT);
+                return user.getName().toLowerCase(Locale.ROOT).contains(lower)
+                        || user.getId().toLowerCase(Locale.ROOT).contains(lower)
+                        || user.getRole().toLowerCase(Locale.ROOT).contains(lower);
             });
         });
 
         addUserBtn.setOnAction(e -> openAddUserDialog());
 
-        getChildren().addAll(header, searchBar, table);
+        HBox actionsBar = new HBox(10);
+        Button changeStatusBtn = new Button(isEnglish() ? "Change account status" : "Zmień status konta");
+        changeStatusBtn.setStyle("-fx-background-color: #0ea5e9; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 6;");
+        changeStatusBtn.setOnAction(e -> changeSelectedUserStatus());
+
+        Button deleteUserBtn = new Button(isEnglish() ? "Delete account" : "Usuń konto");
+        deleteUserBtn.setStyle("-fx-background-color: #ef4444; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 6;");
+        deleteUserBtn.setOnAction(e -> deleteSelectedUser());
+
+        actionsBar.getChildren().addAll(changeStatusBtn, deleteUserBtn);
+
+        getChildren().addAll(header, searchBar, table, actionsBar);
     }
 
     private void openAddUserDialog() {
@@ -115,8 +136,17 @@ public class UserManagementView extends VBox {
         grid.setVgap(10);
         grid.setPadding(new Insets(20, 150, 10, 10));
 
-        ComboBox<String> roleInput = new ComboBox<>(FXCollections.observableArrayList("Student", "Lecturer", "Administrator"));
-        roleInput.setValue("Student");
+        TextField firstNameInput = new TextField();
+        TextField lastNameInput = new TextField();
+        TextField emailInput = new TextField();
+        PasswordField passwordInput = new PasswordField();
+
+        ComboBox<String> roleInput = new ComboBox<>(FXCollections.observableArrayList(
+                isEnglish() ? "Student" : "Student",
+                isEnglish() ? "Lecturer" : "Wykładowca",
+                isEnglish() ? "Administrator" : "Administrator"
+        ));
+        roleInput.getSelectionModel().selectFirst();
 
         grid.add(new Label(MockDataProvider.i18n("label_first_name") + ":"), 0, 0);
         grid.add(firstNameInput, 1, 0);
@@ -132,44 +162,159 @@ public class UserManagementView extends VBox {
         dialog.getDialogPane().setContent(grid);
 
         dialog.setResultConverter(dialogButton -> {
-            if (dialogButton == saveButtonType) {
-                long id = System.currentTimeMillis();
-                String firstName = firstNameInput.getText().trim();
-                String lastName = lastNameInput.getText().trim();
-                String email = emailInput.getText().trim();
-                String password = passwordInput.getText().trim();
-                String roleValue = roleInput.getValue();
-
-                if (firstName.isEmpty() || lastName.isEmpty() || email.isEmpty() || password.isEmpty()) {
-                    return null;
-                }
-
-                if ("Lecturer".equals(roleValue)) {
-                    return new UserRow(new Lecturer(id, firstName, lastName, email, password, "EMP" + id, "Dr."));
-                }
-                if ("Administrator".equals(roleValue)) {
-                    return new UserRow(new Administrator(id, firstName, lastName, email, password, "EMP" + id));
-                }
-                return new UserRow(new Student(id, firstName, lastName, email, password, "ST" + id, "Informatyka", Semester.THIRD));
+            if (dialogButton != saveButtonType) {
+                return null;
             }
-            return null;
+
+            String firstName = firstNameInput.getText() == null ? "" : firstNameInput.getText().trim();
+            String lastName = lastNameInput.getText() == null ? "" : lastNameInput.getText().trim();
+            String email = emailInput.getText() == null ? "" : emailInput.getText().trim();
+            String password = passwordInput.getText() == null ? "" : passwordInput.getText().trim();
+
+            if (firstName.isEmpty() || lastName.isEmpty() || email.isEmpty() || password.isEmpty()) {
+                return null;
+            }
+
+            long id = nextIncrementalUserId();
+            String codeNumber = String.format(Locale.ROOT, "%04d", id);
+
+            String roleValue = roleInput.getValue();
+            String normalizedRole = roleValue == null ? "" : roleValue.toLowerCase(Locale.ROOT);
+            if (normalizedRole.contains("wyk") || normalizedRole.contains("lectur")) {
+                return new UserRow(new Lecturer(id, firstName, lastName, email, password, "EMP" + codeNumber, "Dr."));
+            }
+            if (normalizedRole.contains("admin")) {
+                return new UserRow(new Administrator(id, firstName, lastName, email, password, "ADM" + codeNumber));
+            }
+            return new UserRow(new Student(id, firstName, lastName, email, password, "ST" + codeNumber, "Informatyka", Semester.THIRD));
         });
 
         dialog.showAndWait().ifPresent(newUserRow -> {
             try {
                 authService.register(newUserRow.originalUser);
-                allUsers.setAll(authService.getAllUsers().stream().map(UserRow::new).collect(Collectors.toList()));
+                refreshUsers();
             } catch (IllegalArgumentException ex) {
-                Alert alert = new Alert(Alert.AlertType.ERROR);
-                alert.setTitle(MockDataProvider.i18n("alert_error_title"));
-                alert.setHeaderText(null);
-                alert.setContentText(ex.getMessage());
-                alert.showAndWait();
+                showError(ex.getMessage());
             }
         });
     }
 
-    // Wewnętrzny model danych reprezentujący strukturę użytkownika w tabeli administracyjnej
+    private void changeSelectedUserStatus() {
+        UserRow selectedRow = table.getSelectionModel().getSelectedItem();
+        if (selectedRow == null) {
+            showWarning(isEnglish() ? "Select a user first." : "Najpierw wybierz użytkownika.");
+            return;
+        }
+
+        User user;
+        try {
+            user = authService.findById(Long.parseLong(selectedRow.getId()));
+        } catch (RuntimeException ex) {
+            showWarning(ex.getMessage());
+            return;
+        }
+
+        String activeLabel = isEnglish() ? "Active" : "Aktywne";
+        String inactiveLabel = isEnglish() ? "Inactive" : "Nieaktywne";
+
+        ChoiceDialog<String> dialog = new ChoiceDialog<>(user.isActive() ? activeLabel : inactiveLabel,
+                FXCollections.observableArrayList(activeLabel, inactiveLabel));
+        dialog.setTitle(isEnglish() ? "Account status" : "Status konta");
+        dialog.setHeaderText(isEnglish() ? "Choose new status" : "Wybierz nowy status");
+        dialog.setContentText(isEnglish() ? "Status:" : "Status:");
+
+        dialog.showAndWait().ifPresent(choice -> {
+            try {
+                if (activeLabel.equals(choice)) {
+                    authService.activateUser(user.getId());
+                } else if (inactiveLabel.equals(choice)) {
+                    authService.deactivateUser(user.getId());
+                }
+                refreshUsers();
+                reselectById(user.getId());
+                table.refresh();
+            } catch (IllegalArgumentException | IllegalStateException ex) {
+                showWarning(ex.getMessage());
+            }
+        });
+    }
+
+    private void deleteSelectedUser() {
+        UserRow selectedRow = table.getSelectionModel().getSelectedItem();
+        if (selectedRow == null) {
+            showWarning(isEnglish() ? "Select a user first." : "Najpierw wybierz użytkownika.");
+            return;
+        }
+
+        long userId = Long.parseLong(selectedRow.getId());
+        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+        confirm.setTitle(isEnglish() ? "Delete account" : "Usuń konto");
+        confirm.setHeaderText(null);
+        confirm.setContentText(isEnglish()
+                ? "Are you sure you want to delete selected account?"
+                : "Czy na pewno chcesz usunąć wybrane konto?");
+
+        Optional<ButtonType> result = confirm.showAndWait();
+        if (result.isEmpty() || result.get() != ButtonType.OK) {
+            return;
+        }
+
+        try {
+            authService.deleteUser(userId);
+            refreshUsers();
+            table.refresh();
+        } catch (IllegalArgumentException | IllegalStateException ex) {
+            showWarning(ex.getMessage());
+        }
+    }
+
+    private void refreshUsers() {
+        allUsers.setAll(authService.getAllUsers().stream()
+                .sorted(Comparator.comparing(User::getId))
+                .map(UserRow::new)
+                .collect(Collectors.toList()));
+    }
+
+    private void reselectById(Long userId) {
+        if (userId == null) {
+            return;
+        }
+        for (UserRow row : table.getItems()) {
+            if (String.valueOf(userId).equals(row.getId())) {
+                table.getSelectionModel().select(row);
+                break;
+            }
+        }
+    }
+
+    private long nextIncrementalUserId() {
+        return authService.getAllUsers().stream()
+                .map(User::getId)
+                .filter(id -> id != null)
+                .max(Long::compareTo)
+                .orElse(0L) + 1L;
+    }
+
+    private boolean isEnglish() {
+        return "en".equalsIgnoreCase(MockDataProvider.getCurrentLocale().getLanguage());
+    }
+
+    private void showWarning(String message) {
+        Alert alert = new Alert(Alert.AlertType.WARNING);
+        alert.setTitle(MockDataProvider.i18n("alert_warn_title"));
+        alert.setHeaderText(null);
+        alert.setContentText(message);
+        alert.showAndWait();
+    }
+
+    private void showError(String message) {
+        Alert alert = new Alert(Alert.AlertType.ERROR);
+        alert.setTitle(MockDataProvider.i18n("alert_error_title"));
+        alert.setHeaderText(null);
+        alert.setContentText(message);
+        alert.showAndWait();
+    }
+
     public static class UserRow {
         private final User originalUser;
         private final javafx.beans.property.StringProperty id;
@@ -198,16 +343,36 @@ public class UserManagementView extends VBox {
             return isActive ? MockDataProvider.i18n("status_active") : MockDataProvider.i18n("status_inactive");
         }
 
-        public String getId() { return id.get(); }
-        public javafx.beans.property.StringProperty idProperty() { return id; }
+        public String getId() {
+            return id.get();
+        }
 
-        public String getName() { return name.get(); }
-        public javafx.beans.property.StringProperty nameProperty() { return name; }
+        public javafx.beans.property.StringProperty idProperty() {
+            return id;
+        }
 
-        public String getRole() { return role.get(); }
-        public javafx.beans.property.StringProperty roleProperty() { return role; }
+        public String getName() {
+            return name.get();
+        }
 
-        public String getStatus() { return status.get(); }
-        public javafx.beans.property.StringProperty statusProperty() { return status; }
+        public javafx.beans.property.StringProperty nameProperty() {
+            return name;
+        }
+
+        public String getRole() {
+            return role.get();
+        }
+
+        public javafx.beans.property.StringProperty roleProperty() {
+            return role;
+        }
+
+        public String getStatus() {
+            return status.get();
+        }
+
+        public javafx.beans.property.StringProperty statusProperty() {
+            return status;
+        }
     }
 }

@@ -19,7 +19,6 @@ import pl.usos2.client.view.lecturer.LecturerMessagesView;
 import pl.usos2.client.view.admin.*;
 import pl.usos2.server.config.ApplicationContext;
 import pl.usos2.server.model.user.User;
-import pl.usos2.server.service.request.RequestService;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -111,7 +110,7 @@ public class MainLayout extends BorderPane {
     private void addStudentMenu(VBox sidebar) {
         sidebar.getChildren().addAll(
                 createNavButton("dashboard", () -> setContent(new DashboardView(this.role, this))),
-                createNavButton("schedule", () -> setContent(new ScheduleView())),
+                createNavButton("schedule", () -> setContent(new ScheduleView(this.currentUser, context.getCourseService()))),
                 createNavButton("grades", () -> setContent(new GradesView(this.currentUser, context.getGradeService()))),
                 createNavButton("messages", () -> setContent(new MessagesView(this.currentUser, context.getMessageService(), context.getAuthService()))),
                 createNavButton("requests", () -> setContent(new ApplicationsView(this.currentUser, context.getRequestService()))),
@@ -126,7 +125,7 @@ public class MainLayout extends BorderPane {
                 createNavButton("grades", () -> setContent(new LecturerGradesView(this.currentUser, context.getGradeService()))),
                 createNavButton("messages", () -> setContent(new LecturerMessagesView(this.currentUser, context.getMessageService(), context.getAuthService()))),
                 createNavButton("course", () -> setContent(new LecturerCoursesView(this.currentUser, context.getCourseService()))),
-                createNavButton("schedule", () -> setContent(new ScheduleView()))
+                createNavButton("schedule", () -> setContent(new ScheduleView(this.currentUser, context.getCourseService())))
         );
     }
 
@@ -135,8 +134,10 @@ public class MainLayout extends BorderPane {
                 createNavButton("dashboard", () -> setContent(new DashboardView(this.role, this))),
                 createNavButton("users", () -> setContent(new UserManagementView(context.getAuthService()))),
                 createNavButton("employees", () -> setContent(new EmployeeListView(context.getEmployeeService()))),
-                createNavButton("schedule", () -> setContent(new AdminScheduleView())),
-                createNavButton("requests", () -> setContent(new SystemRequestsView(context.getRequestService())))
+                createNavButton("schedule", () -> setContent(new AdminScheduleView(context.getCourseService()))),
+                createNavButton("requests", () -> setContent(new SystemRequestsView(context.getRequestService()))),
+                createNavButton("tickets", () -> setContent(new AdminTicketsView(context.getServiceTicketService()))),
+                createNavButton("payments", () -> setContent(new AdminPaymentsView(context.getPaymentService())))
         );
     }
 
@@ -150,10 +151,6 @@ public class MainLayout extends BorderPane {
 
     public ApplicationContext getContext() {
         return context;
-    }
-
-    public RequestService getRequestService() {
-        return context.getRequestService();
     }
 
     /**

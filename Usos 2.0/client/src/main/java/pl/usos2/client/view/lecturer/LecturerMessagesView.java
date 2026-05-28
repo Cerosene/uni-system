@@ -8,6 +8,7 @@ import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.util.StringConverter;
 import pl.usos2.client.util.MockDataProvider;
+import pl.usos2.server.model.enumtype.MessageStatus;
 import pl.usos2.server.model.enumtype.UserRole;
 import pl.usos2.server.model.request.Message;
 import pl.usos2.server.model.user.Lecturer;
@@ -91,6 +92,27 @@ public class LecturerMessagesView extends VBox {
 
         inboxListView = new ListView<>();
         inboxListView.setPrefHeight(200);
+        inboxListView.setCellFactory(param -> new ListCell<>() {
+            @Override
+            protected void updateItem(Message msg, boolean empty) {
+                super.updateItem(msg, empty);
+                if (empty || msg == null) {
+                    setText(null);
+                    setStyle("");
+                } else {
+                    String senderName = msg.getSender() != null
+                            ? msg.getSender().getFirstName() + " " + msg.getSender().getLastName()
+                            : "System";
+                    String prefix = msg.getStatus() == MessageStatus.READ ? "" : "● ";
+                    setText(prefix + "Od: " + senderName + " | Temat: " + msg.getSubject());
+                    if (msg.getStatus() == MessageStatus.READ) {
+                        setStyle("-fx-font-weight: normal;");
+                    } else {
+                        setStyle("-fx-font-weight: bold;");
+                    }
+                }
+            }
+        });
 
         messageContentView = new TextArea();
         messageContentView.setEditable(false);
@@ -126,6 +148,14 @@ public class LecturerMessagesView extends VBox {
         inboxListView.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
             if (newVal != null) {
                 messageContentView.setText(newVal.getContent());
+                if (newVal.getStatus() != MessageStatus.READ) {
+                    try {
+                        messageService.markAsRead(newVal, currentLecturer);
+                        inboxListView.refresh();
+                    } catch (IllegalArgumentException | IllegalStateException ignored) {
+                        // No-op: keep UI responsive when state was changed in another place.
+                    }
+                }
             } else {
                 messageContentView.clear();
             }

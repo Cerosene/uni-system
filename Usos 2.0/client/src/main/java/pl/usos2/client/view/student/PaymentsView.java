@@ -3,41 +3,36 @@ package pl.usos2.client.view.student;
 import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
-import javafx.scene.control.*;
-import javafx.scene.layout.*;
+import javafx.scene.control.Label;
+import javafx.scene.control.TableCell;
+import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableView;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
+import pl.usos2.client.util.MockDataProvider;
 import pl.usos2.server.model.finance.Payment;
 import pl.usos2.server.model.user.Student;
 import pl.usos2.server.model.user.User;
 import pl.usos2.server.service.finance.PaymentService;
-import pl.usos2.client.util.MockDataProvider;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.List;
 
-/**
- * Widok panelu finansowego i opłat studenta.
- * Zawiera kartę podsumowania salda oraz tabelę historii operacji.
- * Dostosowany do i18n, wszystkie komentarze są napisane po polsku.
- */
 public class PaymentsView extends VBox {
 
     private final Student currentStudent;
     private final PaymentService paymentService;
 
-    // Węzły strukturalne UI do aktualizacji językowej
     private final Label titleLabel;
     private final Label accountStatusTitle;
     private final Label balanceValue;
     private final Label balanceSubLabel;
     private final Label historyLabel;
 
-    // Kolumny tabeli wymagające tłumaczenia nagłówków
     private final TableView<Payment> table;
     private final TableColumn<Payment, String> titleCol;
     private final TableColumn<Payment, BigDecimal> amountCol;
@@ -52,11 +47,9 @@ public class PaymentsView extends VBox {
         this.currentStudent = (Student) currentUser;
         this.paymentService = paymentService;
 
-        // Główny tytuł sekcji opłat
         titleLabel = new Label();
         titleLabel.setFont(Font.font("System", FontWeight.BOLD, 26));
 
-        // --- KARTA BILANSOWA (BALANCE CARD) ---
         HBox balanceCard = new HBox(40);
         balanceCard.setPadding(new Insets(25, 30, 25, 30));
         balanceCard.setStyle("-fx-background-color: white; " +
@@ -72,7 +65,7 @@ public class PaymentsView extends VBox {
 
         balanceValue = new Label("0.00 PLN");
         balanceValue.setFont(Font.font("System", FontWeight.BOLD, 28));
-        balanceValue.setTextFill(Color.web("#10b981")); // Zielony kolor oznacza brak zadłużeń
+        balanceValue.setTextFill(Color.web("#10b981"));
 
         balanceSubLabel = new Label();
         balanceSubLabel.setTextFill(Color.web("#94a3b8"));
@@ -81,7 +74,6 @@ public class PaymentsView extends VBox {
         balanceLeft.getChildren().addAll(accountStatusTitle, balanceValue, balanceSubLabel);
         balanceCard.getChildren().add(balanceLeft);
 
-        // --- SEKRETY HISTORII PŁATNOŚCI (TABELA) ---
         historyLabel = new Label();
         historyLabel.setFont(Font.font("System", FontWeight.SEMI_BOLD, 15));
         historyLabel.setTextFill(Color.web("#334155"));
@@ -90,7 +82,6 @@ public class PaymentsView extends VBox {
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         table.setStyle("-fx-background-radius: 8; -fx-overflow-x: hidden;");
 
-        // Definicja kolumn tabeli
         titleCol = new TableColumn<>();
         titleCol.setCellValueFactory(d -> new javafx.beans.property.SimpleStringProperty(d.getValue().getTitle()));
 
@@ -113,6 +104,7 @@ public class PaymentsView extends VBox {
         dateCol.setCellValueFactory(d -> new javafx.beans.property.SimpleObjectProperty<>(d.getValue().getDueDate()));
         dateCol.setCellFactory(col -> new TableCell<>() {
             private final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+
             @Override
             protected void updateItem(LocalDate item, boolean empty) {
                 super.updateItem(item, empty);
@@ -134,7 +126,9 @@ public class PaymentsView extends VBox {
                     setText(null);
                     setGraphic(null);
                 } else {
-                    Label statusTag = new Label(item ? MockDataProvider.i18n("payment_status_paid") : MockDataProvider.i18n("payment_status_unpaid"));
+                    Label statusTag = new Label(item
+                            ? MockDataProvider.i18n("payment_status_paid")
+                            : MockDataProvider.i18n("payment_status_unpaid"));
                     statusTag.setPadding(new Insets(3, 8, 3, 8));
                     if (item) {
                         statusTag.setStyle("-fx-background-color: #dcfce7; -fx-text-fill: #15803d; -fx-background-radius: 4; -fx-font-weight: bold; -fx-font-size: 11;");
@@ -147,16 +141,15 @@ public class PaymentsView extends VBox {
         });
 
         table.getColumns().addAll(titleCol, amountCol, dateCol, statusCol);
-        table.setItems(FXCollections.observableArrayList(paymentService.getPaymentsForStudent(currentStudent)));
 
         refreshPaymentData();
         getChildren().addAll(titleLabel, balanceCard, historyLabel, table);
 
-        // Ustawienie aktualnego języka na starcie widoku
         refreshLocalization();
-
-        // Słuchacz globalnego przełącznika języka w MockDataProvider
-        MockDataProvider.currentLocaleProperty().addListener((obs, oldLocale, newLocale) -> refreshLocalization());
+        MockDataProvider.currentLocaleProperty().addListener((obs, oldLocale, newLocale) -> {
+            refreshLocalization();
+            refreshPaymentData();
+        });
     }
 
     private void refreshPaymentData() {
@@ -168,26 +161,23 @@ public class PaymentsView extends VBox {
                 .map(Payment::getAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
+        boolean isEn = "en".equalsIgnoreCase(MockDataProvider.getCurrentLocale().getLanguage());
+        String paymentsWord = isEn ? "payments" : "opłat";
+
         balanceValue.setText(String.format("%.2f PLN", unpaidSum));
-        balanceSubLabel.setText(MockDataProvider.i18n("balance_sub_info") + " • " + payments.size() + " opłat");
+        balanceSubLabel.setText(MockDataProvider.i18n("balance_sub_info") + " • " + payments.size() + " " + paymentsWord);
     }
 
-    /**
-     * Odświeża nazwy etykiet oraz nagłówki kolumn tabeli zgodnie z wybranym językiem (PL/EN).
-     */
     private void refreshLocalization() {
         titleLabel.setText(MockDataProvider.i18n("payments_title_main"));
         accountStatusTitle.setText(MockDataProvider.i18n("account_balance_status"));
-        balanceSubLabel.setText(MockDataProvider.i18n("balance_sub_info"));
         historyLabel.setText(MockDataProvider.i18n("payments_history_label"));
 
-        // Aktualizacja nagłówków kolumn tabeli
         titleCol.setText(MockDataProvider.i18n("col_payment_title"));
         amountCol.setText(MockDataProvider.i18n("col_payment_amount"));
         dateCol.setText(MockDataProvider.i18n("col_payment_date"));
         statusCol.setText(MockDataProvider.i18n("col_payment_status"));
 
-        // Odświeżenie widoku tabeli, aby wymusić ponowne przerysowanie komórek statusu
         table.refresh();
     }
 }

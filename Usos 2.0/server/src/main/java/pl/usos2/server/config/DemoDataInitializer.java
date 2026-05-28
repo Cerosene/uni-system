@@ -9,8 +9,10 @@ import pl.usos2.server.model.user.Student;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.logging.Logger;
 
 public final class DemoDataInitializer {
+    private static final Logger logger = Logger.getLogger(DemoDataInitializer.class.getName());
 
     private DemoDataInitializer() {
     }
@@ -61,21 +63,21 @@ public final class DemoDataInitializer {
         Administrator admin = new Administrator(
                 3L,
                 "Anna",
-                "Zielińska",
+                "Zielinska",
                 "admin@uni.pl",
                 "password123",
                 "ADM001"
         );
 
-        context.getAuthService().register(student);
-        context.getAuthService().register(mateusz);
-        context.getAuthService().register(lecturer);
-        context.getAuthService().register(lecturer2);
-        context.getAuthService().register(admin);
+        tryRegisterUser(context, student);
+        tryRegisterUser(context, mateusz);
+        tryRegisterUser(context, lecturer);
+        tryRegisterUser(context, lecturer2);
+        tryRegisterUser(context, admin);
 
-        context.getEmployeeService().addEmployee(lecturer);
-        context.getEmployeeService().addEmployee(lecturer2);
-        context.getEmployeeService().addEmployee(admin);
+        tryAddEmployee(context, lecturer);
+        tryAddEmployee(context, lecturer2);
+        tryAddEmployee(context, admin);
 
         Course algorithms = new Course(
                 1L,
@@ -93,86 +95,119 @@ public final class DemoDataInitializer {
                 lecturer2
         );
 
-        context.getCourseService().addCourse(algorithms);
-        context.getCourseService().addCourse(databases);
+        tryAddCourse(context, algorithms);
+        tryAddCourse(context, databases);
 
-        context.getGradeService().addGrade(student, algorithms, lecturer, 4.5, "Kolokwium 1");
-        context.getGradeService().addGrade(student, databases, lecturer2, 5.0, "Projekt semestralny");
-        context.getGradeService().addGrade(mateusz, algorithms, lecturer, 4.0, "Kolokwium 1");
+        tryAddGrade(context, student, algorithms, lecturer, 4.5, "Kolokwium 1");
+        tryAddGrade(context, student, databases, lecturer2, 5.0, "Projekt semestralny");
+        tryAddGrade(context, mateusz, algorithms, lecturer, 4.0, "Kolokwium 1");
 
-        context.getPaymentService().createPayment(
-                1L,
-                student,
-                new BigDecimal("22.00"),
-                "Opłata za legitymację studencką",
-                LocalDate.of(2025, 10, 15)
-        );
-        context.getPaymentService().markAsPaid(1L);
+        tryCreatePayment(context, 1L, student, new BigDecimal("22.00"), "Oplata za legitymacje studencka",
+                LocalDate.of(2025, 10, 15));
+        tryMarkPaymentAsPaid(context, 1L);
 
-        context.getPaymentService().createPayment(
-                2L,
-                student,
-                new BigDecimal("2000.00"),
-                "Czesne - Semestr 3",
-                LocalDate.of(2025, 11, 1)
-        );
-        context.getPaymentService().markAsPaid(2L);
+        tryCreatePayment(context, 2L, student, new BigDecimal("2000.00"), "Czesne - Semestr 3",
+                LocalDate.of(2025, 11, 1));
+        tryMarkPaymentAsPaid(context, 2L);
 
-        context.getPaymentService().createPayment(
-                3L,
-                student,
-                new BigDecimal("250.00"),
-                "Opłata za powtarzanie przedmiotu: Algorytmy",
-                LocalDate.of(2026, 6, 15)
-        );
+        tryCreatePayment(context, 3L, student, new BigDecimal("250.00"),
+                "Oplata za powtarzanie przedmiotu: Algorytmy", LocalDate.of(2026, 6, 15));
 
-        context.getPaymentService().createPayment(
-                4L,
-                mateusz,
-                new BigDecimal("22.00"),
-                "Opłata za legitymację studencką",
-                LocalDate.of(2025, 10, 15)
-        );
+        tryCreatePayment(context, 4L, mateusz, new BigDecimal("22.00"), "Oplata za legitymacje studencka",
+                LocalDate.of(2025, 10, 15));
 
-        context.getPaymentService().createPayment(
-                5L,
-                mateusz,
-                new BigDecimal("250.00"),
-                "Opłata za powtarzanie przedmiotu: Algorytmy",
-                LocalDate.of(2026, 6, 15)
-        );
+        tryCreatePayment(context, 5L, mateusz, new BigDecimal("250.00"),
+                "Oplata za powtarzanie przedmiotu: Algorytmy", LocalDate.of(2026, 6, 15));
 
         context.getRequestService().submitRequest(
                 mateusz,
                 RequestType.OTHER,
-                "Prośba o wydanie zaświadczenia o statusie studenta."
+                "Prosba o wydanie zaswiadczenia o statusie studenta."
         );
 
         context.getMessageService().sendMessage(
                 lecturer,
                 mateusz,
-                "Informacja o zajęciach",
-                "Proszę pamiętać o oddaniu projektu semestralnego."
+                "Informacja o zajeciach",
+                "Prosze pamietac o oddaniu projektu semestralnego."
         );
 
         context.getMessageService().sendMessage(
                 student,
                 lecturer,
                 "Pytanie o projekt",
-                "Dzień dobry, czy projekt musi być w JavaFX?"
+                "Dzien dobry, czy projekt musi byc w JavaFX?"
         );
 
         context.getMessageService().sendMessage(
                 lecturer,
                 student,
-                "Odpowiedź: projekt",
-                "Tak, projekt powinien mieć interfejs JavaFX."
+                "Odpowiedz: projekt",
+                "Tak, projekt powinien miec interfejs JavaFX."
         );
 
         context.getServiceTicketService().createTicket(
                 student,
-                "Brak dostępu do WiFi",
-                "W sali 312 nie działa eduroam."
+                "Brak dostepu do WiFi",
+                "W sali 312 nie dziala eduroam."
         );
+    }
+
+    private static void tryAddGrade(ApplicationContext context,
+                                    Student student,
+                                    Course course,
+                                    Lecturer lecturer,
+                                    double value,
+                                    String description) {
+        try {
+            context.getGradeService().addGrade(student, course, lecturer, value, description);
+        } catch (IllegalArgumentException exception) {
+            logger.info("Skipping demo grade insert (likely already in Oracle): " + exception.getMessage());
+        }
+    }
+
+    private static void tryAddCourse(ApplicationContext context, Course course) {
+        try {
+            context.getCourseService().addCourse(course);
+        } catch (IllegalArgumentException exception) {
+            logger.info("Skipping demo course insert (likely already in Oracle): " + exception.getMessage());
+        }
+    }
+
+    private static void tryRegisterUser(ApplicationContext context, pl.usos2.server.model.user.User user) {
+        try {
+            context.getAuthService().register(user);
+        } catch (IllegalArgumentException exception) {
+            logger.info("Skipping demo user register (likely already in Oracle): " + exception.getMessage());
+        }
+    }
+
+    private static void tryAddEmployee(ApplicationContext context, pl.usos2.server.model.user.Employee employee) {
+        try {
+            context.getEmployeeService().addEmployee(employee);
+        } catch (IllegalArgumentException exception) {
+            logger.info("Skipping demo employee insert (likely already in Oracle): " + exception.getMessage());
+        }
+    }
+
+    private static void tryCreatePayment(ApplicationContext context,
+                                         Long paymentId,
+                                         Student student,
+                                         BigDecimal amount,
+                                         String title,
+                                         LocalDate dueDate) {
+        try {
+            context.getPaymentService().createPayment(paymentId, student, amount, title, dueDate);
+        } catch (IllegalArgumentException exception) {
+            logger.info("Skipping demo payment insert (likely already in Oracle): " + exception.getMessage());
+        }
+    }
+
+    private static void tryMarkPaymentAsPaid(ApplicationContext context, Long paymentId) {
+        try {
+            context.getPaymentService().markAsPaid(paymentId);
+        } catch (IllegalStateException | IllegalArgumentException exception) {
+            logger.info("Skipping demo payment status update (likely already paid or missing): " + exception.getMessage());
+        }
     }
 }

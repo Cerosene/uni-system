@@ -3,15 +3,22 @@ package pl.usos2.client.view.student;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
-import javafx.scene.control.*;
-import javafx.scene.layout.*;
+import javafx.scene.control.Alert;
+import javafx.scene.control.Button;
+import javafx.scene.control.ComboBox;
+import javafx.scene.control.Label;
+import javafx.scene.control.ListCell;
+import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableView;
+import javafx.scene.control.TextArea;
+import javafx.scene.layout.VBox;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
+import javafx.util.StringConverter;
+import pl.usos2.client.util.DisplayTextFormatter;
 import pl.usos2.client.util.MockDataProvider;
-import pl.usos2.server.model.enumtype.RequestStatus;
 import pl.usos2.server.model.enumtype.RequestType;
 import pl.usos2.server.model.request.Request;
-import javafx.collections.FXCollections;
 import pl.usos2.server.model.user.Student;
 import pl.usos2.server.model.user.User;
 import pl.usos2.server.service.request.RequestService;
@@ -19,14 +26,8 @@ import pl.usos2.server.service.request.RequestService;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
-/**
- * Widok składania i przeglądania wniosków studenckich.
- * Obsługuje dynamiczną zmianę języka (i18n), pełną walidację pól formularza
- * oraz wyświetlanie historii w tabeli zintegrowanej z MockDataProvider.
- */
 public class ApplicationsView extends VBox {
 
-    // Komponenty UI wymagające aktualizacji po zmianie języka
     private final Label titleLabel;
     private final Label formTitleLabel;
     private final ComboBox<RequestType> typeCombo;
@@ -35,8 +36,6 @@ public class ApplicationsView extends VBox {
     private final Label historyTitleLabel;
     private final Student currentStudent;
     private final RequestService requestService;
-
-    // Tabela historyczna wyświetlająca złożone wnioski
     private final TableView<Request> historyTable;
 
     public ApplicationsView(User currentUser, RequestService requestService) {
@@ -46,11 +45,9 @@ public class ApplicationsView extends VBox {
         setSpacing(20);
         setStyle("-fx-background-color: #f8fafc;");
 
-        // Główny nagłówek ekranu
         titleLabel = new Label();
         titleLabel.setFont(Font.font("System", FontWeight.BOLD, 24));
 
-        // --- FORMULARZ ZGŁOSZENIOWY (Stylizacja Tailwind CSS style) ---
         VBox formContainer = new VBox(15);
         formContainer.setPadding(new Insets(20));
         formContainer.setStyle("-fx-background-color: white; -fx-background-radius: 12; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.03), 10, 0, 0, 2);");
@@ -59,54 +56,71 @@ public class ApplicationsView extends VBox {
         formTitleLabel.setFont(Font.font("System", FontWeight.BOLD, 16));
         formTitleLabel.setStyle("-fx-text-fill: #1e293b;");
 
-        // Wybór typu wniosku z enuma RequestType
         typeCombo = new ComboBox<>();
         typeCombo.setItems(FXCollections.observableArrayList(RequestType.values()));
+        typeCombo.setConverter(new StringConverter<>() {
+            @Override
+            public String toString(RequestType type) {
+                return DisplayTextFormatter.formatRequestType(type);
+            }
+
+            @Override
+            public RequestType fromString(String string) {
+                return null;
+            }
+        });
+        typeCombo.setButtonCell(new ListCell<>() {
+            @Override
+            protected void updateItem(RequestType item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty || item == null ? null : DisplayTextFormatter.formatRequestType(item));
+            }
+        });
+        typeCombo.setCellFactory(list -> new ListCell<>() {
+            @Override
+            protected void updateItem(RequestType item, boolean empty) {
+                super.updateItem(item, empty);
+                setText(empty || item == null ? null : DisplayTextFormatter.formatRequestType(item));
+            }
+        });
         typeCombo.setMaxWidth(350);
         typeCombo.setStyle("-fx-background-color: #f1f5f9; -fx-border-color: #cbd5e1; -fx-border-radius: 6; -fx-background-radius: 6;");
 
-        // Pole tekstowe na uzasadnienie wniosku
         contentArea = new TextArea();
         contentArea.setPrefHeight(120);
         contentArea.setStyle("-fx-control-inner-background: #f1f5f9; -fx-background-color: transparent; -fx-border-color: #cbd5e1; -fx-border-radius: 6;");
 
-        // Przycisk wysyłania wniosku z obsługą zdarzenia i walidacją
         submitBtn = new Button();
         submitBtn.setFont(Font.font("System", FontWeight.BOLD, 14));
         submitBtn.setStyle("-fx-background-color: #2563eb; -fx-text-fill: white; -fx-background-radius: 6; -fx-cursor: hand; -fx-padding: 10 20 10 20;");
-
-        // Efekty najechania myszką na przycisk akcji
         submitBtn.setOnMouseEntered(e -> submitBtn.setStyle("-fx-background-color: #1d4ed8; -fx-text-fill: white; -fx-background-radius: 6; -fx-cursor: hand; -fx-padding: 10 20 10 20;"));
         submitBtn.setOnMouseExited(e -> submitBtn.setStyle("-fx-background-color: #2563eb; -fx-text-fill: white; -fx-background-radius: 6; -fx-cursor: hand; -fx-padding: 10 20 10 20;"));
-
         submitBtn.setOnAction(e -> handleFormSubmit());
 
         formContainer.getChildren().addAll(formTitleLabel, typeCombo, contentArea, submitBtn);
 
-        // --- LISTA ZGŁOSZONYCH WNIOSKÓW (HISTORIA W TABELI) ---
         historyTitleLabel = new Label();
         historyTitleLabel.setFont(Font.font("System", FontWeight.BOLD, 18));
         historyTitleLabel.setStyle("-fx-text-fill: #334155; -fx-padding: 10 0 0 0;");
 
-        // Definicja i konfiguracja tabeli historycznej
         historyTable = new TableView<>();
         historyTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         historyTable.setPrefHeight(250);
         historyTable.setStyle("-fx-background-color: white; -fx-background-radius: 12; -fx-border-radius: 12; -fx-border-color: #cbd5e1;");
 
-        // Kolumna: Typ wniosku
         TableColumn<Request, String> typeCol = new TableColumn<>("Typ");
-        typeCol.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().getType().toString()));
+        typeCol.setCellValueFactory(data -> new SimpleStringProperty(
+                DisplayTextFormatter.formatRequestType(data.getValue().getType())
+        ));
 
-        // Kolumna: Uzasadnienie (Treść)
         TableColumn<Request, String> contentCol = new TableColumn<>("Uzasadnienie");
         contentCol.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().getContent()));
 
-        // Kolumna: Status rozpatrzenia
         TableColumn<Request, String> statusCol = new TableColumn<>("Status");
-        statusCol.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().getStatus().toString()));
+        statusCol.setCellValueFactory(data -> new SimpleStringProperty(
+                DisplayTextFormatter.formatRequestStatus(data.getValue().getStatus())
+        ));
 
-        // Kolumna: Data utworzenia wpisu
         TableColumn<Request, String> dateCol = new TableColumn<>("Data złożenia");
         dateCol.setCellValueFactory(data -> {
             LocalDateTime dateTime = data.getValue().getCreatedAt();
@@ -117,29 +131,21 @@ public class ApplicationsView extends VBox {
         });
 
         historyTable.getColumns().addAll(typeCol, contentCol, statusCol, dateCol);
-
-        // Podpięcie reaktywnej listy wniosków z globalnego MockDataProvider
-        historyTable.setItems(FXCollections.observableArrayList(
-                requestService.getRequestsByStudent(currentStudent)
-        ));
+        historyTable.setItems(FXCollections.observableArrayList(requestService.getRequestsByStudent(currentStudent)));
 
         getChildren().addAll(titleLabel, formContainer, historyTitleLabel, historyTable);
 
-        // Pierwsze tłumaczenie interfejsu przy inicjalizacji
         refreshLocalization();
-
-        // Nasłuchiwanie globalnej zmiany języka w aplikacji
-        MockDataProvider.currentLocaleProperty().addListener((obs, oldLocale, newLocale) -> refreshLocalization());
+        MockDataProvider.currentLocaleProperty().addListener((obs, oldLocale, newLocale) -> {
+            refreshLocalization();
+            refreshRequestsTable();
+        });
     }
 
-    /**
-     * Obsługuje proces wysyłania i walidacji formularza nowego wniosku.
-     */
     private void handleFormSubmit() {
         RequestType selectedType = typeCombo.getValue();
         String contentText = contentArea.getText();
 
-        // Walidacja pól: sprawdzenie czy typ został wybrany oraz czy opis nie jest pusty
         if (selectedType == null || contentText == null || contentText.trim().isEmpty()) {
             Alert alert = new Alert(Alert.AlertType.WARNING);
             alert.setTitle(MockDataProvider.i18n("alert_validation_title"));
@@ -166,9 +172,6 @@ public class ApplicationsView extends VBox {
         historyTable.setItems(FXCollections.observableArrayList(requestService.getRequestsByStudent(currentStudent)));
     }
 
-    /**
-     * Metoda aktualizująca wszystkie etykiety tekstowe na podstawie aktualnego języka.
-     */
     private void refreshLocalization() {
         titleLabel.setText(MockDataProvider.i18n("requests_title_screen"));
         formTitleLabel.setText(MockDataProvider.i18n("new_request_label"));
@@ -177,7 +180,6 @@ public class ApplicationsView extends VBox {
         submitBtn.setText(MockDataProvider.i18n("submit_btn_txt"));
         historyTitleLabel.setText(MockDataProvider.i18n("history_title_label"));
 
-        // Dynamiczne tłumaczenie nagłówków kolumn w tabeli JavaFX
         boolean isEn = MockDataProvider.getCurrentLocale().getLanguage().equals("en");
         historyTable.getColumns().get(0).setText(isEn ? "Type" : "Typ");
         historyTable.getColumns().get(1).setText(isEn ? "Justification" : "Uzasadnienie");

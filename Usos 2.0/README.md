@@ -2,20 +2,268 @@
 
 Uproszczony system uczelniany tworzony w Javie/JavaFX na potrzeby projektu zaliczeniowego.
 
+Projekt korzysta z lokalnej bazy **Oracle Database Free** uruchamianej w kontenerze Docker przez **Docker Desktop + WSL2**.
+
+---
+
 ## Technologie
 
 - Java 17+
+- Zalecane: JDK 21
 - JavaFX 21
 - Maven
 - JUnit 5
-- Docelowo: Oracle Database + JDBC
+- Oracle Database Free
+- JDBC
+- Docker Desktop
+- WSL2
+- DBeaver
+
+---
+
+## Wymagania systemowe
+
+Do uruchomienia projektu wymagane są:
+
+- Windows 10/11
+- WSL2
+- Docker Desktop z backendem WSL2
+- Java JDK 21
+- Maven
+- DBeaver albo inne narzędzie do obsługi Oracle Database
+- IntelliJ IDEA lub inne IDE obsługujące Maven/JavaFX
+
+---
+
+## Konfiguracja bazy Oracle przez Docker Desktop + WSL2
+
+Projekt korzysta z lokalnego kontenera Oracle Database Free.
+
+### 1. Sprawdzenie WSL2
+
+W PowerShellu można sprawdzić dostępne dystrybucje WSL:
+
+```powershell
+wsl -l -v
+```
+
+Przykładowy poprawny wynik:
+
+```text
+NAME      STATE           VERSION
+Ubuntu    Stopped         2
+```
+
+Jeżeli dystrybucja działa na wersji 1, należy przełączyć ją na WSL2.
+
+---
+
+### 2. Pobranie obrazu Oracle Database Free
+
+W PowerShellu albo terminalu uruchom:
+
+```powershell
+docker pull container-registry.oracle.com/database/free:latest
+```
+
+---
+
+### 3. Uruchomienie kontenera Oracle
+
+```powershell
+docker run -d --name usos-oracle -p 1521:1521 -e ORACLE_PWD=Admin12345 container-registry.oracle.com/database/free:latest
+```
+
+Po uruchomieniu można sprawdzić status kontenera:
+
+```powershell
+docker ps
+```
+
+Kontener powinien mieć status podobny do:
+
+```text
+Up ... (healthy)
+```
+
+Można też podejrzeć logi:
+
+```powershell
+docker logs -f usos-oracle
+```
+
+Baza jest gotowa, gdy w logach pojawi się komunikat:
+
+```text
+DATABASE IS READY TO USE!
+```
+
+---
+
+### 4. Przydatne komendy Dockera
+
+Uruchomienie istniejącego kontenera:
+
+```powershell
+docker start usos-oracle
+```
+
+Zatrzymanie kontenera:
+
+```powershell
+docker stop usos-oracle
+```
+
+Podgląd logów:
+
+```powershell
+docker logs -f usos-oracle
+```
+
+Wejście do SQL*Plus jako system:
+
+```powershell
+docker exec -it usos-oracle sqlplus system/Admin12345@localhost:1521/FREEPDB1
+```
+
+Wejście do SQL*Plus jako użytkownik projektu:
+
+```powershell
+docker exec -it usos-oracle sqlplus USOS/usos123@localhost:1521/FREEPDB1
+```
+
+---
+
+## Konfiguracja bazy danych projektu
+
+Projekt używa następujących parametrów połączenia:
+
+```text
+Host: localhost
+Port: 1521
+Service name: FREEPDB1
+JDBC URL: jdbc:oracle:thin:@//localhost:1521/FREEPDB1
+User: USOS
+Password: usos123
+System user: system
+System password: Admin12345
+```
+
+---
+
+## Utworzenie użytkownika USOS i załadowanie schematu
+
+Skrypty bazy danych znajdują się w katalogu:
+
+```text
+database/
+```
+
+Kolejność uruchamiania:
+
+```text
+01_create_user.sql
+02_schema.sql
+03_seed.sql
+```
+
+Opcjonalnie do usunięcia obiektów:
+
+```text
+04_drop.sql
+```
+
+### 1. Utworzenie użytkownika USOS
+
+Skrypt:
+
+```text
+01_create_user.sql
+```
+
+należy uruchomić jako:
+
+```text
+system
+```
+
+albo:
+
+```text
+SYS AS SYSDBA
+```
+
+Tworzy on użytkownika/schemat:
+
+```text
+USOS / usos123
+```
+
+### 2. Utworzenie tabel
+
+Skrypt:
+
+```text
+02_schema.sql
+```
+
+należy uruchomić już na połączeniu:
+
+```text
+USOS / usos123
+```
+
+### 3. Załadowanie danych testowych
+
+Skrypt:
+
+```text
+03_seed.sql
+```
+
+również należy uruchomić jako:
+
+```text
+USOS / usos123
+```
+
+---
+
+## Konfiguracja połączenia w DBeaverze
+
+W DBeaverze należy utworzyć nowe połączenie Oracle:
+
+```text
+Database: Oracle
+Host: localhost
+Port: 1521
+Service name: FREEPDB1
+Username: USOS
+Password: usos123
+```
+
+Po połączeniu można sprawdzić, czy dane zostały załadowane:
+
+```sql
+SELECT *
+FROM users;
+```
+
+albo:
+
+```sql
+SELECT COUNT(*)
+FROM users;
+```
+
+---
 
 ## Uruchomienie projektu
 
 Projekt najlepiej uruchamiać przez Maven z katalogu głównego projektu:
 
 ```powershell
-cd "C:\fork\uni-system\Usos 2.0"
+cd "C:\...\uni-system\Usos 2.0"
 mvn clean javafx:run
 ```
 
@@ -37,6 +285,8 @@ bo może pojawić się błąd:
 Error: JavaFX runtime components are missing, and are required to run this application
 ```
 
+---
+
 ## Wymagana konfiguracja IntelliJ
 
 Zalecana konfiguracja:
@@ -49,12 +299,54 @@ Maven Runner JRE: Project JDK 21
 
 W projekcie używany jest JavaFX 21, dlatego najlepiej nie uruchamiać aplikacji na JDK 26.
 
-## Przykładowe konta do logowania
+---
 
-Dane testowe są tworzone w klasie:
+## Diagnostyka połączenia z bazą
+
+W projekcie znajdują się klasy diagnostyczne sprawdzające połączenie Java z Oracle.
+
+Przykładowa klasa:
 
 ```text
-server/src/main/java/pl/usos2/server/config/DemoDataInitializer.java
+server/src/main/java/pl/usos2/server/database/DatabaseConnectionDiagnostic.java
+```
+
+Diagnostyka sprawdza między innymi:
+
+```sql
+SELECT 1 FROM dual;
+```
+
+oraz liczbę użytkowników:
+
+```sql
+SELECT COUNT(*) FROM users;
+```
+
+Poprawny wynik powinien wyglądać podobnie do:
+
+```text
+DB ping OK: 1
+Users count: 5
+Database diagnostic finished successfully.
+```
+
+Dodatkowo istnieje pełna diagnostyka bazy:
+
+```text
+server/src/main/java/pl/usos2/server/database/DatabaseFullDiagnostic.java
+```
+
+Sprawdza ona liczbę rekordów w kluczowych tabelach projektu.
+
+---
+
+## Przykładowe konta do logowania
+
+Dane testowe są ładowane do bazy przez skrypt:
+
+```text
+database/03_seed.sql
 ```
 
 | Rola | Imię i nazwisko | E-mail / login | Hasło |
@@ -62,8 +354,10 @@ server/src/main/java/pl/usos2/server/config/DemoDataInitializer.java
 | Student | Dmytro Lytvyn | `dmytro@uni.pl` | `pass123` |
 | Student | Mateusz Lewandowski | `mateusz@uni.pl` | `password123` |
 | Prowadzący | Tomasz Nowak | `lecturer@uni.pl` | `password123` |
-| Prowadzący | Maria Kowalska | `m.kow@uni.pl` | `password123` |
+| Prowadzący | Marek Kowalski | `m.kow@uni.pl` | `password123` |
 | Administrator | Anna Zielińska | `admin@uni.pl` | `password123` |
+
+---
 
 ## Zakres kont testowych
 
@@ -76,9 +370,11 @@ Po zalogowaniu jako student można testować między innymi:
 - wiadomości,
 - wnioski studenckie,
 - opłaty,
-- zgłoszenia serwisowe.
+- zgłoszenia serwisowe,
+- plan zajęć,
+- wypożyczenia.
 
-Najlepsze konto do testowania widocznych danych studenta:
+Najlepsze konta do testowania widocznych danych studenta:
 
 ```text
 Login: mateusz@uni.pl
@@ -92,6 +388,8 @@ Login: dmytro@uni.pl
 Hasło: pass123
 ```
 
+---
+
 ### Prowadzący
 
 Po zalogowaniu jako prowadzący można testować między innymi:
@@ -99,7 +397,8 @@ Po zalogowaniu jako prowadzący można testować między innymi:
 - panel prowadzącego,
 - grupy/przedmioty,
 - wystawianie i podgląd ocen,
-- wiadomości.
+- wiadomości,
+- plan zajęć prowadzącego.
 
 Konta prowadzących:
 
@@ -113,6 +412,8 @@ Login: m.kow@uni.pl
 Hasło: password123
 ```
 
+---
+
 ### Administrator
 
 Po zalogowaniu jako administrator można testować między innymi:
@@ -123,7 +424,11 @@ Po zalogowaniu jako administrator można testować między innymi:
 - zgłoszenia,
 - wnioski,
 - opłaty,
-- widoki administracyjne.
+- kursy,
+- grupy,
+- zapisy,
+- widoki administracyjne,
+- audit logi.
 
 Konto administratora:
 
@@ -132,26 +437,164 @@ Login: admin@uni.pl
 Hasło: password123
 ```
 
+---
+
+## Moduły korzystające z Oracle/JDBC
+
+Projekt został przepięty na Oracle/JDBC w następujących obszarach:
+
+- logowanie i użytkownicy,
+- oceny,
+- wiadomości,
+- wnioski studenckie,
+- płatności,
+- zgłoszenia serwisowe,
+- wypożyczenia i zasoby,
+- pracownicy,
+- zarządzanie użytkownikami,
+- kursy, grupy i zapisy,
+- audit logi,
+- diagnostyka bazy.
+
+Główne tabele używane przez aplikację:
+
+```text
+users
+roles
+students
+lecturers
+admins
+employees
+subjects
+course_groups
+enrollments
+grades
+messages
+applications
+payments
+service_tickets
+resources
+loans
+audit_logs
+```
+
+---
+
 ## Uruchomienie testów
 
 Testy jednostkowe można uruchomić poleceniem:
 
 ```powershell
-cd "C:\fork\uni-system\Usos 2.0"
+cd "C:\...\uni-system\Usos 2.0"
 mvn clean test
 ```
+
+---
+
+## Typowe problemy
+
+### Docker nie działa
+
+Sprawdź, czy Docker Desktop jest uruchomiony oraz czy korzysta z backendu WSL2.
+
+```powershell
+docker ps
+```
+
+---
+
+### Kontener Oracle nie działa
+
+Uruchom kontener:
+
+```powershell
+docker start usos-oracle
+```
+
+Sprawdź logi:
+
+```powershell
+docker logs -f usos-oracle
+```
+
+---
+
+### Błąd połączenia z bazą
+
+Sprawdź, czy kontener działa:
+
+```powershell
+docker ps
+```
+
+Sprawdź parametry połączenia:
+
+```text
+localhost
+1521
+FREEPDB1
+USOS
+usos123
+```
+
+---
+
+### DBeaver nie widzi tabel
+
+Upewnij się, że jesteś połączony jako:
+
+```text
+USOS
+```
+
+a nie jako:
+
+```text
+system
+```
+
+Tabele projektu znajdują się w schemacie `USOS`.
+
+---
+
+### Błąd JavaFX runtime components are missing
+
+Nie uruchamiaj bezpośrednio:
+
+```text
+pl.usos2.client.MainApp
+```
+
+Uruchamiaj przez Maven:
+
+```powershell
+mvn clean javafx:run
+```
+
+albo przez:
+
+```text
+pl.usos2.client.Launcher
+```
+
+---
 
 ## Ważne uwagi
 
 - Hasła w projekcie są zapisane jawnie, ponieważ jest to wersja demonstracyjna na potrzeby zaliczenia.
-- Dane przykładowe są inicjalizowane przy starcie aplikacji przez `DemoDataInitializer`.
-- Projekt nie korzysta jeszcze w pełni z docelowej bazy Oracle/JDBC w każdej części aplikacji.
-- Na II kamień milowy najważniejsze są: działające GUI, podpięcie widoków pod logikę biznesową, testy usług oraz przygotowanie pod integrację z bazą danych.
+- Dane przykładowe są ładowane przez skrypt `03_seed.sql`.
+- Baza działa lokalnie w kontenerze Docker `usos-oracle`.
+- Aplikacja łączy się z bazą przez JDBC.
+- Wartości techniczne enumów pozostają w bazie, np. `OPEN`, `CLOSED`, `SCHOLARSHIP`, `APPROVED`, a w UI powinny być formatowane na czytelne polskie etykiety.
+- Do testowania bazy najlepiej używać DBeavera oraz klas diagnostycznych.
+- Przy problemach z wydajnością można zatrzymać kontener Oracle:
 
-## Główne osoby i odpowiedzialności
+```powershell
+docker stop usos-oracle
+```
 
-| Osoba | Zakres |
-|---|---|
-| Mateusz Lewandowski | model obiektowy, logika biznesowa, testy jednostkowe |
-| Marek Sikora | baza danych Oracle, JDBC, DAO |
-| Mykyta Lytvyn | GUI JavaFX, integracja widoków z logiką |
+oraz wyłączyć WSL:
+
+```powershell
+wsl --shutdown
+```

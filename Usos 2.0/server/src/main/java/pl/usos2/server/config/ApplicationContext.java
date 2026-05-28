@@ -1,6 +1,7 @@
 package pl.usos2.server.config;
 
 import pl.usos2.server.service.admin.EmployeeService;
+import pl.usos2.server.service.audit.AuditLogService;
 import pl.usos2.server.service.auth.AuthService;
 import pl.usos2.server.service.course.CourseService;
 import pl.usos2.server.service.finance.PaymentService;
@@ -13,6 +14,7 @@ import pl.usos2.server.service.request.RequestService;
 public class ApplicationContext {
 
     private final AuthService authService = new AuthService();
+    private final AuditLogService auditLogService = AuditLogService.getInstance();
     private final GradeService gradeService = new GradeService();
     private final MessageService messageService = new MessageService();
     private final RequestService requestService = new RequestService();
@@ -24,6 +26,10 @@ public class ApplicationContext {
 
     public AuthService getAuthService() {
         return authService;
+    }
+
+    public AuditLogService getAuditLogService() {
+        return auditLogService;
     }
 
     public GradeService getGradeService() {

@@ -1,33 +1,44 @@
 package pl.usos2.server.service.auth;
 
+import pl.usos2.server.dao.user.JdbcUserDao;
+import pl.usos2.server.dao.user.UserDao;
 import pl.usos2.server.model.enumtype.UserRole;
 import pl.usos2.server.model.user.User;
+import pl.usos2.server.service.audit.AuditLogService;
 import pl.usos2.server.util.ValidationUtils;
 
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.logging.Logger;
 
 public class AuthService {
     private static final Logger logger = Logger.getLogger(AuthService.class.getName());
 
-    private final List<User> users = new ArrayList<>();
+    private final UserDao userDao;
+    private final AuditLogService auditLogService;
+
+    public AuthService() {
+        this(new JdbcUserDao(), AuditLogService.getInstance());
+    }
+
+    public AuthService(UserDao userDao) {
+        this(userDao, AuditLogService.getInstance());
+    }
+
+    public AuthService(UserDao userDao, AuditLogService auditLogService) {
+        this.userDao = userDao;
+        this.auditLogService = auditLogService;
+    }
 
     public User register(User user) {
         validateUser(user);
 
-        if (findOptionalById(user.getId()).isPresent()) {
+        if (userDao.existsById(user.getId())) {
             logger.warning("Registration failed. User id already exists: " + user.getId());
             throw new IllegalArgumentException("User with this id already exists.");
         }
 
         String normalizedEmail = ValidationUtils.normalizeEmail(user.getEmail());
-
-        boolean emailExists = users.stream()
-                .anyMatch(existing -> existing.getEmail().equalsIgnoreCase(normalizedEmail));
-
-        if (emailExists) {
+        if (userDao.existsByEmail(normalizedEmail)) {
             logger.warning("Registration failed. Email already exists: " + normalizedEmail);
             throw new IllegalArgumentException("User with this email already exists.");
         }
@@ -36,17 +47,21 @@ public class AuthService {
         user.setLastName(user.getLastName().trim());
         user.setEmail(normalizedEmail);
 
-        users.add(user);
-
-        logger.info("Registered new user: " + user.getEmail());
-        return user;
+        User saved = userDao.save(user);
+        logger.info("Registered new user: " + saved.getEmail());
+        logger.info("[DIAGNOSTIC] User persisted in Oracle during register. userId=" + saved.getId());
+        auditSafely(saved.getId(), "USER_CREATED", "USERS", saved.getId(),
+                "User registered with email=" + saved.getEmail());
+        return saved;
     }
 
     public User login(String email, String password) {
         String normalizedEmail = ValidationUtils.normalizeEmail(email);
         ValidationUtils.requireMinLength(password, 6, "Password must have at least 6 characters.");
 
-        User user = findByEmail(normalizedEmail);
+        User user = userDao.findByEmail(normalizedEmail)
+                .orElseThrow(() -> new IllegalArgumentException("Invalid email or password."));
+        logger.info("[DIAGNOSTIC] Login lookup loaded user from Oracle. email=" + normalizedEmail);
 
         if (!user.isActive()) {
             logger.warning("Login failed. Inactive account: " + normalizedEmail);
@@ -59,40 +74,53 @@ public class AuthService {
         }
 
         logger.info("User logged in successfully: " + normalizedEmail);
+        auditSafely(user.getId(), "LOGIN", "USERS", user.getId(), "Successful login for email=" + normalizedEmail);
         return user;
     }
 
     public void logout(Long userId) {
         User user = findById(userId);
         logger.info("User logged out: " + user.getEmail());
+        auditSafely(user.getId(), "LOGOUT", "USERS", user.getId(), "User logged out. email=" + user.getEmail());
     }
 
     public User updateBasicData(Long userId, String firstName, String lastName) {
-        User user = findById(userId);
+        User existing = findById(userId);
 
-        user.setFirstName(ValidationUtils.normalizeText(firstName, "First name cannot be empty."));
-        user.setLastName(ValidationUtils.normalizeText(lastName, "Last name cannot be empty."));
-
+        User updated = userDao.updateBasicData(
+                userId,
+                ValidationUtils.normalizeText(firstName, "First name cannot be empty."),
+                ValidationUtils.normalizeText(lastName, "Last name cannot be empty."),
+                existing.getEmail()
+        );
         logger.info("Updated user basic data. id=" + userId);
-        return user;
+        logger.info("[DIAGNOSTIC] User basic data updated in Oracle. userId=" + userId);
+        auditSafely(userId, "USER_UPDATED", "USERS", userId,
+                "Updated firstName/lastName for user id=" + userId);
+        return updated;
     }
 
     public User changeEmail(Long userId, String newEmail) {
-        User user = findById(userId);
+        User existing = findById(userId);
         String normalizedEmail = ValidationUtils.normalizeEmail(newEmail);
 
-        boolean emailTaken = users.stream()
-                .filter(existing -> !existing.getId().equals(userId))
-                .anyMatch(existing -> existing.getEmail().equalsIgnoreCase(normalizedEmail));
-
+        boolean emailTaken = userDao.existsByEmailExcludingId(normalizedEmail, userId);
         if (emailTaken) {
             logger.warning("Email change failed. Email already used: " + normalizedEmail);
             throw new IllegalArgumentException("User with this email already exists.");
         }
 
-        user.setEmail(normalizedEmail);
+        User updated = userDao.updateBasicData(
+                userId,
+                existing.getFirstName(),
+                existing.getLastName(),
+                normalizedEmail
+        );
         logger.info("Changed user email. id=" + userId + ", newEmail=" + normalizedEmail);
-        return user;
+        logger.info("[DIAGNOSTIC] User email updated in Oracle. userId=" + userId);
+        auditSafely(userId, "USER_UPDATED", "USERS", userId,
+                "Updated email to " + normalizedEmail);
+        return updated;
     }
 
     public User changePassword(Long userId, String currentPassword, String newPassword) {
@@ -111,57 +139,77 @@ public class AuthService {
             throw new IllegalArgumentException("New password must be different from current password.");
         }
 
-        user.setPassword(newPassword.trim());
+        User updated = userDao.updatePassword(userId, newPassword.trim());
         logger.info("Changed password for user id=" + userId);
-        return user;
+        logger.info("[DIAGNOSTIC] User password updated in Oracle. userId=" + userId);
+        return updated;
     }
 
     public User activateUser(Long userId) {
-        User user = findById(userId);
-        user.setActive(true);
+        User updated = userDao.updateActive(userId, true);
         logger.info("Activated user id=" + userId);
-        return user;
+        logger.info("[DIAGNOSTIC] User activation saved in Oracle. userId=" + userId);
+        return updated;
     }
 
     public User deactivateUser(Long userId) {
-        User user = findById(userId);
-        user.setActive(false);
+        User updated = userDao.updateActive(userId, false);
         logger.info("Deactivated user id=" + userId);
-        return user;
+        logger.info("[DIAGNOSTIC] User deactivation saved in Oracle. userId=" + userId);
+        return updated;
+    }
+
+    public void deleteUser(Long userId) {
+        ValidationUtils.requireNotNull(userId, "User id cannot be null.");
+        User existing = findById(userId);
+        userDao.deleteById(userId);
+        logger.info("Deleted user id=" + userId);
+        logger.info("[DIAGNOSTIC] User deleted in Oracle. userId=" + userId);
+        auditSafely(userId, "USER_DELETED", "USERS", userId,
+                "User deleted. email=" + existing.getEmail());
     }
 
     public User findById(Long userId) {
         ValidationUtils.requireNotNull(userId, "User id cannot be null.");
 
-        return findOptionalById(userId)
+        User user = userDao.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("User not found."));
+        logger.info("[DIAGNOSTIC] User loaded by id from Oracle. userId=" + userId);
+        return user;
     }
 
     public User findByEmail(String email) {
         String normalizedEmail = ValidationUtils.normalizeEmail(email);
 
-        return users.stream()
-                .filter(user -> user.getEmail().equalsIgnoreCase(normalizedEmail))
-                .findFirst()
+        User user = userDao.findByEmail(normalizedEmail)
                 .orElseThrow(() -> new IllegalArgumentException("User not found."));
+        logger.info("[DIAGNOSTIC] User loaded by email from Oracle. email=" + normalizedEmail);
+        return user;
     }
 
     public List<User> getUsersByRole(UserRole role) {
         ValidationUtils.requireNotNull(role, "User role cannot be null.");
 
-        return users.stream()
-                .filter(user -> user.getRole() == role)
-                .toList();
+        List<User> users = userDao.findByRole(role);
+        logger.info("[DIAGNOSTIC] Users loaded by role from Oracle. role=" + role + ", count=" + users.size());
+        return users;
     }
 
     public List<User> getAllUsers() {
-        return new ArrayList<>(users);
+        List<User> users = userDao.findAll();
+        logger.info("[DIAGNOSTIC] All users loaded from Oracle. count=" + users.size());
+        return users;
     }
 
-    private Optional<User> findOptionalById(Long userId) {
-        return users.stream()
-                .filter(user -> userId.equals(user.getId()))
-                .findFirst();
+    public User changeRole(Long userId, UserRole role) {
+        ValidationUtils.requireNotNull(userId, "User id cannot be null.");
+        ValidationUtils.requireNotNull(role, "User role cannot be null.");
+
+        User updated = userDao.updateRole(userId, role);
+        logger.info("Changed role for user id=" + userId + " to " + role);
+        logger.info("[DIAGNOSTIC] User role updated in Oracle. userId=" + userId);
+        auditSafely(userId, "USER_UPDATED", "USERS", userId, "Changed role to " + role);
+        return updated;
     }
 
     private void validateUser(User user) {
@@ -172,5 +220,13 @@ public class AuthService {
         ValidationUtils.requireValidEmail(user.getEmail(), "Email has invalid format.");
         ValidationUtils.requireMinLength(user.getPassword(), 6, "Password must have at least 6 characters.");
         ValidationUtils.requireNotNull(user.getRole(), "User role cannot be null.");
+    }
+
+    private void auditSafely(Long userId, String actionName, String entityName, Long entityId, String details) {
+        try {
+            auditLogService.logEvent(userId, actionName, entityName, entityId, details);
+        } catch (RuntimeException exception) {
+            logger.warning("Audit log write failed: " + exception.getMessage());
+        }
     }
 }

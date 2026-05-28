@@ -2,23 +2,24 @@ package pl.usos2.client.view.lecturer;
 
 import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
-import javafx.scene.control.*;
+import javafx.scene.control.Alert;
+import javafx.scene.control.Button;
+import javafx.scene.control.ComboBox;
+import javafx.scene.control.Label;
+import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableView;
+import javafx.scene.control.TextField;
 import javafx.scene.layout.VBox;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import pl.usos2.client.util.MockDataProvider;
 import pl.usos2.server.model.academic.Grade;
 import pl.usos2.server.model.user.Lecturer;
-import pl.usos2.server.model.user.Student;
 import pl.usos2.server.model.user.User;
 import pl.usos2.server.service.grade.GradeService;
 
 import java.util.List;
 
-/**
- * Panel wystawiania ocen semestralnych przez wykładowcę akademickiego.
- * Zintegrowany z mechanizmem i18n oraz komunikacją z serwisem ocen.
- */
 public class LecturerGradesView extends VBox {
 
     private final GradeService gradeService;
@@ -55,9 +56,7 @@ public class LecturerGradesView extends VBox {
         idCol.setCellValueFactory(d -> new javafx.beans.property.SimpleStringProperty(d.getValue().grade.getStudent().getStudentNumber()));
 
         nameCol = new TableColumn<>();
-        nameCol.setCellValueFactory(d -> new javafx.beans.property.SimpleStringProperty(
-                d.getValue().grade.getStudent().getFullName()
-        ));
+        nameCol.setCellValueFactory(d -> new javafx.beans.property.SimpleStringProperty(d.getValue().grade.getStudent().getFullName()));
 
         courseCol = new TableColumn<>();
         courseCol.setCellValueFactory(d -> new javafx.beans.property.SimpleStringProperty(d.getValue().grade.getCourse().getName()));
