@@ -143,7 +143,7 @@ public class MainLayout extends BorderPane {
                 createNavButton("requests", () -> setContent(new SystemRequestsView(context.getRequestService()))),
                 createNavButton("tickets", () -> setContent(new AdminTicketsView(context.getServiceTicketService()))),
                 createNavButton("payments", () -> setContent(new AdminPaymentsView(context.getPaymentService()))),
-                createNavButton("admin_rentals", () -> setContent(new AdminRentalsView()))
+                createNavButton("admin_rentals", () -> setContent(new AdminRentalsView(context.getRentalService())))
         );
     }
 

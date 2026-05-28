@@ -446,6 +446,22 @@ public class MockDataProvider {
             case "rental_col_date": return isEn ? "Rental date" : "Data wypożyczenia";
             case "rental_col_status": return isEn ? "Status" : "Status";
 
+            case "table_name": return isEn? "Name" : "Imie Nazwisko";
+            case "table_email": return isEn? "Email" : "Email";
+            case "table_position": return isEn? "Position" : "Stanowisko";
+            case "table_salary": return isEn? "Salary" : "Pensja";
+            case "table_status": return isEn? "Status" : "Status";
+
+            case "field_name": return isEn? "Name" : "Imię";
+            case "field_surname": return isEn? "Surname" : "Nazwisko";
+            case "field_email": return isEn? "Email" : "Email";
+            case "field_salary": return isEn? "Salary" : "Pensja";
+            case "field_role": return isEn? "Position" : "Stanowisko";
+
+            case "btn_save": return isEn? "Save" : "Zapisz";
+            case "btn_delete": return isEn? "Delete" : "Usuń";
+            case "btn_clear": return isEn? "Clear" : "Wyczyść";
+            case "employee_active": return isEn? "Active" : "Aktywny";
             default: return key;
         }
     }

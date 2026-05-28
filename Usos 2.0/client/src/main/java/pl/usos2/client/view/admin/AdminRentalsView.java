@@ -12,10 +12,13 @@ import pl.usos2.server.service.rental.RentalService;
  */
 public class AdminRentalsView extends VBox {
 
-    private final RentalService rentalService = new RentalService();
+    private final RentalService rentalService; // Zmieniono na final bez inicjalizacji 'new'
     private final TableView<Rental> table = new TableView<>();
 
-    public AdminRentalsView() {
+    // Konstruktor przyjmujący serwis z ApplicationContext
+    public AdminRentalsView(RentalService rentalService) {
+        this.rentalService = rentalService;
+
         setPadding(new Insets(30));
         setSpacing(15);
         setStyle("-fx-background-color: #f8fafc;");

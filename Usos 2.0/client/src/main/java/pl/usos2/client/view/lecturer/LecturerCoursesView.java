@@ -1,6 +1,7 @@
 package pl.usos2.client.view.lecturer;
 
 import javafx.geometry.Insets;
+import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
@@ -12,6 +13,7 @@ import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import pl.usos2.client.util.MockDataProvider;
 import pl.usos2.server.model.academic.Course;
+import pl.usos2.server.model.academic.StudentGroup;
 import pl.usos2.server.model.user.Lecturer;
 import pl.usos2.server.model.user.User;
 import pl.usos2.server.service.course.CourseService;
@@ -89,11 +91,23 @@ public class LecturerCoursesView extends ScrollPane {
         viewStudentsBtn.setMaxWidth(Double.MAX_VALUE);
         viewStudentsBtn.setStyle("-fx-background-color: #3b82f6; -fx-text-fill: white; -fx-font-weight: bold;");
         viewStudentsBtn.setOnAction(e -> {
-            setContent(new StudentListView(
-                    this.courseService,
-                    course.getId(),
-                    course.getName()
-            ));
+
+            List<StudentGroup> allGroups = courseService.getAllGroups();
+
+            List<StudentGroup> courseGroups = allGroups.stream()
+                    .filter(g -> g.getCourse() != null && g.getCourse().getId().equals(course.getId()))
+                    .collect(Collectors.toList());
+
+            if (!courseGroups.isEmpty()) {
+                StudentGroup targetGroup = courseGroups.get(0);
+                setContent(new StudentListView(
+                        this.courseService,
+                        targetGroup.getId(),
+                        targetGroup.getName()
+                ));
+            } else {
+                new Alert(Alert.AlertType.WARNING, "Brak przypisanej grupy dla tego kursu!").show();
+            }
         });
         card.getChildren().addAll(codeLbl, nameLbl, infoRow, viewStudentsBtn);
 

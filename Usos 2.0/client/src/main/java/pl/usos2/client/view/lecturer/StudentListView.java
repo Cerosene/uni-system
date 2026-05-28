@@ -29,6 +29,7 @@ public class StudentListView extends VBox {
         this.groupId = groupId;
         this.groupName = groupName;
 
+
         setPadding(new Insets(30));
         setSpacing(20);
         setStyle("-fx-background-color: #f8fafc;");
@@ -63,6 +64,7 @@ public class StudentListView extends VBox {
         try {
 
             List<Student> students = courseService.getStudentsForGroup(groupId);
+
             table.setItems(FXCollections.observableArrayList(students));
         } catch (Exception e) {
             new Alert(Alert.AlertType.ERROR, "Błąd ładowania studentów: " + e.getMessage()).show();
