@@ -181,6 +181,8 @@ public class MockDataProvider {
             case "users": return isEn ? "Users" : "UĹĽytkownicy";
             case "employees": return isEn ? "Employees" : "Pracownicy";
             case "course": return isEn ? "My Courses" : "Moje kursy";
+            case "rentals": return isEn ? "My Rentals" : "Moje wypożyczenia";
+            case "admin_rentals": return isEn ? "Rental Management" : "Zarządzanie wypożyczeniami";
 
             // --- PANEL GÄŹĹĽËťÄŹĹĽËťWNY (DASHBOARD GENERAL) ---
             // --- PRZYCISKI SZYBKICH AKCJI (QUICK ACTIONS NAV) ---
@@ -191,6 +193,8 @@ public class MockDataProvider {
             case "nav_messages": return isEn ? "Messages" : "WiadomoĹ›ci";
             case "nav_thesis": return isEn ? "Thesis Topic" : "Praca dyplomowa";
             case "nav_tickets": return isEn ? "Service Tickets" : "ZgĹ‚oszenia";
+            case "nav_rental": return isEn ? "Wypożyczenia" : "Rentals";
+
 
             // --- KARTY STATYSTYK STUDENTA (STUDENT STAT CARDS) ---
             case "gpa_title": return isEn ? "Current GPA" : "Aktualna ÄŹĹĽËťrednia";
@@ -334,11 +338,11 @@ public class MockDataProvider {
             case "add_class_dialog_title": return isEn ? "Scheduling" : "Planowanie zajÄŹĹĽËťÄŹĹĽËť";
             case "add_class_dialog_header": return isEn ? "Assign course to this slot" : "Przypisz przedmiot do tego slotu";
             case "add_class_dialog_content": return isEn ? "Choose course:" : "Wybierz przedmiot:";
-            case "edit_class_title": return isEn ? "Manage Class Slot" : "ZarzÄŹĹĽËťdzanie slotem zajÄŹĹĽËťÄŹĹĽËť";
+            case "edit_class_title": return isEn ? "Manage Class Slot" : "Zarządzanie slotem zajęć";
             case "edit_class_confirm_delete": return isEn ? "Do you want to cancel and delete this class?" : "Czy chcesz odwoÄŹĹĽËťaÄŹĹĽËť i usunÄŹĹĽËťÄŹĹĽËť te zajÄŹĹĽËťcia z planu?";
-            case "delete_btn_label": return isEn ? "Delete" : "UsuÄŹĹĽËť";
+            case "delete_btn_label": return isEn ? "Delete" : "Usuń";
             case "cancel_btn_label": return isEn ? "Cancel" : "Anuluj";
-            case "employee_directory_title": return isEn ? "Academic Employee Directory" : "Katalog PracownikÄŹĹĽËťw Naukowych";
+            case "employee_directory_title": return isEn ? "Academic Employee Directory" : "Katalog Pracowników Naukowych";
 
             // Klawisze dla SystemRequestsView
             case "sys_requests_title": return isEn ? "System Requests & Applications" : "ZgÄŹĹĽËťoszenia Systemowe i Wnioski";
@@ -348,7 +352,7 @@ public class MockDataProvider {
             case "btn_process_request": return isEn ? "Process Selected" : "Rozpatrz zgÄŹĹĽËťoszenie";
             case "request_process_success": return isEn ? "The request has been processed successfully!" : "ZgÄŹĹĽËťoszenie zostaÄŹĹĽËťo pomyÄŹĹĽËťlnie rozpatrzone!";
 
-// Klawisze dla UserManagementView
+            // Klawisze dla UserManagementView
             case "user_management_title": return isEn ? "User Management Panel" : "Panel ZarzÄŹĹĽËťdzania UÄŹĹĽËťytkownikami";
             case "btn_add_new_user": return isEn ? "+ Add New User" : "+ Dodaj UÄŹĹĽËťytkownika";
             case "search_users_holder": return isEn ? "Search by ID, name or role..." : "Szukaj po ID, imieniu lub roli...";
@@ -435,7 +439,13 @@ public class MockDataProvider {
             case "no_courses_message": return isEn ? "No courses available" : "Brak dostÄŹĹĽËťpnych kursÄŹĹĽËťw";
             case "no_messages_message": return isEn ? "No messages available" : "Brak wiadomoÄŹĹĽËťci";
             case "no_groups_message": return isEn ? "No groups available" : "Brak dostÄŹĹĽËťpnych grup";
-            
+
+            // -- RENTALS
+            case "my_rentals_title": return isEn ? "My rentals" : "Moje wypożyczenia";
+            case "rental_col_item": return isEn ? "Item" : "Przedmiot";
+            case "rental_col_date": return isEn ? "Rental date" : "Data wypożyczenia";
+            case "rental_col_status": return isEn ? "Status" : "Status";
+
             default: return key;
         }
     }

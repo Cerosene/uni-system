@@ -10,6 +10,8 @@ import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import pl.usos2.client.MainApp;
+import pl.usos2.client.view.lecturer.StudentListView;
+import pl.usos2.client.view.rental.StudentRentalsView;
 import pl.usos2.server.model.enumtype.UserRole;
 import pl.usos2.client.util.MockDataProvider;
 import pl.usos2.client.view.student.*;
@@ -115,7 +117,8 @@ public class MainLayout extends BorderPane {
                 createNavButton("messages", () -> setContent(new MessagesView(this.currentUser, context.getMessageService(), context.getAuthService()))),
                 createNavButton("requests", () -> setContent(new ApplicationsView(this.currentUser, context.getRequestService()))),
                 createNavButton("payments", () -> setContent(new PaymentsView(this.currentUser, context.getPaymentService()))),
-                createNavButton("tickets", () -> setContent(new TicketsView(this.currentUser, context.getServiceTicketService())))
+                createNavButton("tickets", () -> setContent(new TicketsView(this.currentUser, context.getServiceTicketService()))),
+                createNavButton("rentals", () -> setContent(new StudentRentalsView(this.currentUser, context.getRentalService())))
         );
     }
 
@@ -126,6 +129,8 @@ public class MainLayout extends BorderPane {
                 createNavButton("messages", () -> setContent(new LecturerMessagesView(this.currentUser, context.getMessageService(), context.getAuthService()))),
                 createNavButton("course", () -> setContent(new LecturerCoursesView(this.currentUser, context.getCourseService()))),
                 createNavButton("schedule", () -> setContent(new ScheduleView(this.currentUser, context.getCourseService())))
+
+
         );
     }
 
@@ -137,7 +142,8 @@ public class MainLayout extends BorderPane {
                 createNavButton("schedule", () -> setContent(new AdminScheduleView(context.getCourseService()))),
                 createNavButton("requests", () -> setContent(new SystemRequestsView(context.getRequestService()))),
                 createNavButton("tickets", () -> setContent(new AdminTicketsView(context.getServiceTicketService()))),
-                createNavButton("payments", () -> setContent(new AdminPaymentsView(context.getPaymentService())))
+                createNavButton("payments", () -> setContent(new AdminPaymentsView(context.getPaymentService()))),
+                createNavButton("admin_rentals", () -> setContent(new AdminRentalsView()))
         );
     }
 

@@ -22,6 +22,7 @@ import pl.usos2.client.view.layout.MainLayout;
 import pl.usos2.client.view.lecturer.LecturerCoursesView;
 import pl.usos2.client.view.lecturer.LecturerGradesView;
 import pl.usos2.client.view.lecturer.LecturerMessagesView;
+import pl.usos2.client.view.rental.StudentRentalsView;
 import pl.usos2.server.model.academic.StudentGroup;
 import pl.usos2.server.model.enumtype.ServiceTicketStatus;
 import pl.usos2.server.model.enumtype.UserRole;
@@ -144,7 +145,9 @@ public class DashboardView extends ScrollPane {
                     createActionButton("nav_applications", "Wnioski", "#8b5cf6", () -> mainLayout.setContent(new ApplicationsView(mainLayout.getCurrentUser(), mainLayout.getContext().getRequestService()))),
                     createActionButton("nav_payments", "Płatności", "#ef4444", () -> mainLayout.setContent(new PaymentsView(mainLayout.getCurrentUser(), mainLayout.getContext().getPaymentService()))),
                     createActionButton("nav_messages", "Wiadomości", "#06b6d4", () -> mainLayout.setContent(new MessagesView(mainLayout.getCurrentUser(), mainLayout.getContext().getMessageService(), mainLayout.getContext().getAuthService()))),
-                    createActionButton("nav_tickets", "Zgłoszenia", "#f59e0b", () -> mainLayout.setContent(new TicketsView(mainLayout.getCurrentUser(), mainLayout.getContext().getServiceTicketService())))
+                    createActionButton("nav_tickets", "Zgłoszenia", "#f59e0b", () -> mainLayout.setContent(new TicketsView(mainLayout.getCurrentUser(), mainLayout.getContext().getServiceTicketService()))),
+                    createActionButton("nav_rental", "Wypożyczenia", "#3b82f6", () -> mainLayout.setContent(new StudentRentalsView(mainLayout.getCurrentUser(), mainLayout.getContext().getRentalService())))
+
             );
         } else if (role == UserRole.LECTURER) {
             actionsGrid.getChildren().addAll(

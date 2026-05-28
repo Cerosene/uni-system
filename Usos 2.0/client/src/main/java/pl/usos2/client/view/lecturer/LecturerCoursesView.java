@@ -1,6 +1,7 @@
 package pl.usos2.client.view.lecturer;
 
 import javafx.geometry.Insets;
+import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.layout.FlowPane;
@@ -18,16 +19,14 @@ import pl.usos2.server.service.course.CourseService;
 import java.util.List;
 import java.util.stream.Collectors;
 
-/**
- * Widok zarządzania kursami prowadzonymi przez wykładowcę.
- * Obsługuje dynamiczne tłumaczenie i18n interfejsu graficznego.
- */
 public class LecturerCoursesView extends ScrollPane {
 
     private final Label titleLabel;
     private final FlowPane coursesGrid;
+    private final CourseService courseService; // Pole klasy do użycia w przyciskach
 
     public LecturerCoursesView(User currentUser, CourseService courseService) {
+        this.courseService = courseService;
         setFitToWidth(true);
         setStyle("-fx-background-color: #f8fafc; -fx-background: #f8fafc;");
 
@@ -66,7 +65,6 @@ public class LecturerCoursesView extends ScrollPane {
         card.setPadding(new Insets(20));
         card.setPrefWidth(280);
         card.setStyle("-fx-background-color: white; -fx-background-radius: 12; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.05), 10, 0, 0, 4);");
-        card.setUserData(new CourseMetadata(course.getCode(), course.getName(), course.getEcts(), course.getLecturer().getFullName()));
 
         Label codeLbl = new Label(course.getCode());
         codeLbl.setTextFill(Color.web("#3b82f6"));
@@ -80,30 +78,30 @@ public class LecturerCoursesView extends ScrollPane {
         Label lecturerLbl = new Label(course.getLecturer().getFullName());
         lecturerLbl.setStyle("-fx-background-color: #f1f5f9; -fx-padding: 3 8; -fx-background-radius: 5; -fx-font-size: 12;");
 
-        Label ectsLbl = new Label(course.getEcts() + " ECTS");
-        ectsLbl.setStyle("-fx-background-color: #f1f5f9; -fx-padding: 3 8; -fx-background-radius: 5; -fx-font-size: 12;");
+        int studentCount = courseService.getStudentsForGroup(course.getId()).size();
+        Label studentsCountLbl = new Label(studentCount + " studentów");
+        studentsCountLbl.setStyle("-fx-background-color: #dcfce7; -fx-text-fill: #166534; -fx-padding: 3 8; -fx-background-radius: 5; -fx-font-size: 12;");
 
-        infoRow.getChildren().addAll(lecturerLbl, ectsLbl);
-        card.getChildren().addAll(codeLbl, nameLbl, infoRow);
+        infoRow.getChildren().addAll(lecturerLbl, studentsCountLbl);
+
+        // Przycisk "Lista studentów" - dodany do karty
+        Button viewStudentsBtn = new Button("Lista studentów");
+        viewStudentsBtn.setMaxWidth(Double.MAX_VALUE);
+        viewStudentsBtn.setStyle("-fx-background-color: #3b82f6; -fx-text-fill: white; -fx-font-weight: bold;");
+        viewStudentsBtn.setOnAction(e -> {
+            setContent(new StudentListView(
+                    this.courseService,
+                    course.getId(),
+                    course.getName()
+            ));
+        });
+        card.getChildren().addAll(codeLbl, nameLbl, infoRow, viewStudentsBtn);
 
         return card;
     }
 
+
     private void refreshLocalization() {
         titleLabel.setText(MockDataProvider.i18n("lecturer_courses_title"));
-    }
-
-    private static class CourseMetadata {
-        final String courseCode;
-        final String courseName;
-        final int ects;
-        final String lecturerName;
-
-        CourseMetadata(String courseCode, String courseName, int ects, String lecturerName) {
-            this.courseCode = courseCode;
-            this.courseName = courseName;
-            this.ects = ects;
-            this.lecturerName = lecturerName;
-        }
     }
 }
