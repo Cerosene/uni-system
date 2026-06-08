@@ -1,8 +1,10 @@
 package pl.usos2.server.model.base;
 
+import java.io.Serializable;
 import java.util.Objects;
 
-public abstract class BaseEntity {
+public abstract class BaseEntity implements Serializable {
+    private static final long serialVersionUID = 1L;
     protected Long id;
 
     public BaseEntity() {

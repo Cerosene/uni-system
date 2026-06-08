@@ -5,8 +5,10 @@ import javafx.scene.Scene;
 import javafx.stage.Stage;
 import pl.usos2.client.view.auth.LoginView;
 import pl.usos2.client.view.layout.MainLayout;
+import pl.usos2.client.network.ApiClient;
+import pl.usos2.client.service.remote.RemoteApplicationContext;
+import pl.usos2.client.session.ClientSession;
 import pl.usos2.server.config.ApplicationContext;
-import pl.usos2.server.config.DemoDataInitializer;
 import pl.usos2.server.model.user.User;
 
 public class MainApp extends Application {
@@ -19,8 +21,9 @@ public class MainApp extends Application {
     public void start(Stage primaryStage) {
         this.primaryStage = primaryStage;
 
-        this.context = new ApplicationContext();
-        DemoDataInitializer.initialize(context);
+        ApiClient apiClient = new ApiClient();
+        ClientSession clientSession = new ClientSession();
+        this.context = new RemoteApplicationContext(apiClient, clientSession);
 
         primaryStage.setTitle("University System USOS 2.0");
         primaryStage.setMaximized(true);
