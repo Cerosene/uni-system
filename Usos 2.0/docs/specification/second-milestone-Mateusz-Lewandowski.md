@@ -122,3 +122,16 @@ Moja część drugiego kamienia milowego przygotowuje backendową warstwę syste
 - integracji z bazą danych Oracle,
 - połączenia logiki biznesowej z interfejsem graficznym,
 - dalszego rozwoju architektury klient-serwer w kolejnym etapie projektu.
+
+## Aktualizacja po integracji klient-serwer
+
+Po integracji z warstwą klient-serwer moja część logiki biznesowej została wykorzystana przez aplikację serwerową oraz zdalne serwisy klienta.
+
+Najważniejsze elementy po integracji:
+- serwisy biznesowe działają po stronie serwera,
+- klient JavaFX komunikuje się z serwerem przez sockety,
+- operacje na ocenach, wiadomościach, wnioskach, płatnościach, wypożyczeniach i zgłoszeniach są wykonywane przez warstwę serwisową,
+- testy jednostkowe logiki biznesowej zostały utrzymane na fake DAO,
+- logika biznesowa nie jest bezpośrednio zależna od GUI.
+
+Dodatkowo po stronie klienta dodano obsługę zdalnego liczenia średniej ocen studenta w RemoteGradeService.

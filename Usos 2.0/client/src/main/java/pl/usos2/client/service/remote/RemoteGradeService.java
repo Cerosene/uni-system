@@ -63,4 +63,19 @@ public class RemoteGradeService extends GradeService {
     public List<Grade> getAllGrades() {
         return (List<Grade>) apiClient.send(ApiAction.GRADE_LIST_ALL, session.getToken());
     }
+
+    @Override
+    public double getAverageGradeForStudent(Student student) {
+        List<Grade> grades = getGradesForStudent(student);
+
+        if (grades.isEmpty()) {
+            return 0.0;
+        }
+
+        return grades.stream()
+                .mapToDouble(Grade::getValue)
+                .average()
+                .orElse(0.0);
+    }
 }
+
