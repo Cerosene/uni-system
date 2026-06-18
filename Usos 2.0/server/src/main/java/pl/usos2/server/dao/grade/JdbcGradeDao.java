@@ -269,5 +269,31 @@ public class JdbcGradeDao implements GradeDao {
     private interface SqlParameterSetter {
         void set(PreparedStatement statement) throws SQLException;
     }
+
+public List<Grade> getStudentsWithGradesForLecturer(Long lecturerId) {
+    String sql = """
+        SELECT 
+            g.grade_id, g.grade_value, g.description,
+            s.student_id, su.first_name AS student_first_name, su.last_name AS student_last_name,
+            su.email AS student_email, su.password_hash AS student_password,
+            s.student_number, s.field_of_study, s.semester, su.active_flag AS student_active_flag,
+            subj.subject_id, subj.subject_name, subj.subject_code, subj.ects,
+            l.lecturer_id, lu.first_name AS lecturer_first_name, lu.last_name AS lecturer_last_name,
+            lu.email AS lecturer_email, lu.password_hash AS lecturer_password,
+            lu.active_flag AS lecturer_active_flag, e.employee_number, e.position_title, e.salary, l.academic_title
+        FROM USOS.STUDENTS s
+        JOIN USOS.USERS su ON su.user_id = s.student_id
+        JOIN USOS.ENROLLMENTS enr ON s.student_id = enr.student_id
+        JOIN USOS.COURSE_GROUPS cg ON enr.group_id = cg.group_id
+        JOIN USOS.SUBJECTS subj ON cg.subject_id = subj.subject_id
+        JOIN USOS.LECTURERS l ON subj.lecturer_id = l.lecturer_id
+        JOIN USOS.EMPLOYEES e ON e.employee_id = l.lecturer_id
+        JOIN USOS.USERS lu ON lu.user_id = l.lecturer_id
+        LEFT JOIN USOS.GRADES g ON s.student_id = g.student_id AND subj.subject_id = g.subject_id
+        WHERE subj.lecturer_id = ?
+        """;
+    
+    return executeListQuery(sql, statement -> statement.setLong(1, lecturerId));
+}
 }
 

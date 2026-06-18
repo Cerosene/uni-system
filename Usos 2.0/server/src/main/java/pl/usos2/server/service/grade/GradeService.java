@@ -99,14 +99,13 @@ public class GradeService {
 
     public List<Grade> getGradesForLecturer(Lecturer lecturer) {
         ValidationUtils.requireNotNull(lecturer, "Lecturer cannot be null.");
-        ValidationUtils.requireNotNull(lecturer.getId(), "Lecturer id cannot be null.");
-
-        List<Grade> grades = gradeDao.findByLecturerId(lecturer.getId());
-        logger.info("[DIAGNOSTIC] Lecturer grades fetched from Oracle. lecturerId=" + lecturer.getId()
-                + ", count=" + grades.size());
+        
+        List<Grade> grades = ((JdbcGradeDao) gradeDao).getStudentsWithGradesForLecturer(lecturer.getId());
+        
+        logger.info("[DIAGNOSTIC] Lecturer students loaded. count=" + grades.size());
         return grades;
     }
-
+    
     public double getAverageGradeForStudent(Student student) {
         ValidationUtils.requireNotNull(student, "Student cannot be null.");
         ValidationUtils.requireNotNull(student.getId(), "Student id cannot be null.");

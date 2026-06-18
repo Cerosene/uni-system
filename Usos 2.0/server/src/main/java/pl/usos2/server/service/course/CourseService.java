@@ -206,4 +206,8 @@ public class CourseService {
             logger.warning("Audit log write failed: " + exception.getMessage());
         }
     }
+
+ public void updateCourseLecturer(Long courseId, Long lecturerId) {
+    courseDao.updateLecturerForCourse(courseId, lecturerId);
+}
 }

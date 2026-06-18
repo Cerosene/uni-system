@@ -29,6 +29,15 @@ public class AdminPaymentsView extends VBox {
     private final PaymentService paymentService;
     private final TableView<Payment> table;
 
+    private final Label titleLabel;
+    private final TableColumn<Payment, String> idCol;
+    private final TableColumn<Payment, String> studentCol;
+    private final TableColumn<Payment, String> titleCol;
+    private final TableColumn<Payment, String> amountCol;
+    private final TableColumn<Payment, String> dueDateCol;
+    private final TableColumn<Payment, String> statusCol;
+    private final Button updateStatusBtn;
+
     public AdminPaymentsView(PaymentService paymentService) {
         this.paymentService = paymentService;
 
@@ -36,18 +45,16 @@ public class AdminPaymentsView extends VBox {
         setSpacing(20);
         setStyle("-fx-background-color: #f8fafc;");
 
-        boolean isEn = isEnglish();
-
-        Label title = new Label(isEn ? "Users Payments" : "Płatności użytkowników");
-        title.setFont(Font.font("System", FontWeight.BOLD, 24));
+        titleLabel = new Label();
+        titleLabel.setFont(Font.font("System", FontWeight.BOLD, 24));
 
         table = new TableView<>();
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
 
-        TableColumn<Payment, String> idCol = new TableColumn<>("ID");
+        idCol = new TableColumn<>("ID");
         idCol.setCellValueFactory(data -> new SimpleStringProperty(String.valueOf(data.getValue().getId())));
 
-        TableColumn<Payment, String> studentCol = new TableColumn<>(isEn ? "Student" : "Student");
+        studentCol = new TableColumn<>();
         studentCol.setCellValueFactory(data -> {
             if (data.getValue().getStudent() == null) {
                 return new SimpleStringProperty("");
@@ -55,28 +62,31 @@ public class AdminPaymentsView extends VBox {
             return new SimpleStringProperty(data.getValue().getStudent().getFullName());
         });
 
-        TableColumn<Payment, String> titleCol = new TableColumn<>(isEn ? "Title" : "Tytuł");
+        titleCol = new TableColumn<>();
         titleCol.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().getTitle()));
 
-        TableColumn<Payment, String> amountCol = new TableColumn<>(isEn ? "Amount" : "Kwota");
+        amountCol = new TableColumn<>();
         amountCol.setCellValueFactory(data -> new SimpleStringProperty(formatAmount(data.getValue())));
 
-        TableColumn<Payment, String> dueDateCol = new TableColumn<>(isEn ? "Due date" : "Termin");
+        dueDateCol = new TableColumn<>();
         dueDateCol.setCellValueFactory(data -> new SimpleStringProperty(
                 data.getValue().getDueDate() == null ? "" : data.getValue().getDueDate().toString()
         ));
 
-        TableColumn<Payment, String> statusCol = new TableColumn<>(isEn ? "Status" : "Status");
+        statusCol = new TableColumn<>();
         statusCol.setCellValueFactory(data -> new SimpleStringProperty(formatPaymentStatus(data.getValue().isPaid())));
 
         table.getColumns().addAll(idCol, studentCol, titleCol, amountCol, dueDateCol, statusCol);
         refreshTable();
 
-        Button updateStatusBtn = new Button(isEn ? "Change status" : "Zmień status");
+        updateStatusBtn = new Button();
         updateStatusBtn.setStyle("-fx-background-color: #10b981; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 16; -fx-background-radius: 6;");
         updateStatusBtn.setOnAction(e -> changeSelectedStatus());
 
-        getChildren().addAll(title, table, updateStatusBtn);
+        getChildren().addAll(titleLabel, table, updateStatusBtn);
+
+        refreshLocalization();
+        MockDataProvider.currentLocaleProperty().addListener((obs, oldLocale, newLocale) -> refreshLocalization());
     }
 
     private void changeSelectedStatus() {
@@ -165,5 +175,20 @@ public class AdminPaymentsView extends VBox {
         alert.setHeaderText(null);
         alert.setContentText(message);
         alert.showAndWait();
+    }
+
+    private void refreshLocalization() {
+        boolean isEn = isEnglish();
+        titleLabel.setText(isEn ? "Users Payments" : "Płatności użytkowników");
+        updateStatusBtn.setText(isEn ? "Change status" : "Zmień status");
+
+        idCol.setText("ID");
+        studentCol.setText(isEn ? "Student" : "Student");
+        titleCol.setText(MockDataProvider.i18n("col_payment_title"));
+        amountCol.setText(MockDataProvider.i18n("col_payment_amount"));
+        dueDateCol.setText(MockDataProvider.i18n("col_payment_date"));
+        statusCol.setText(MockDataProvider.i18n("col_payment_status"));
+
+        table.refresh();
     }
 }

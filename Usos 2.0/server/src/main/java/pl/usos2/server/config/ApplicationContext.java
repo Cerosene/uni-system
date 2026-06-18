@@ -10,6 +10,12 @@ import pl.usos2.server.service.maintenance.ServiceTicketService;
 import pl.usos2.server.service.message.MessageService;
 import pl.usos2.server.service.rental.RentalService;
 import pl.usos2.server.service.request.RequestService;
+import pl.usos2.server.dao.schedule.ScheduleDao;
+import pl.usos2.server.dao.schedule.JdbcScheduleDao;
+import pl.usos2.server.service.schedule.ScheduleService;
+
+
+
 
 public class ApplicationContext {
 
@@ -23,6 +29,9 @@ public class ApplicationContext {
     private final ServiceTicketService serviceTicketService;
     private final RentalService rentalService;
     private final CourseService courseService;
+    private final ScheduleService scheduleService;
+
+
 
     public ApplicationContext() {
         this.auditLogService = AuditLogService.getInstance();
@@ -35,6 +44,9 @@ public class ApplicationContext {
         this.serviceTicketService = new ServiceTicketService();
         this.rentalService = new RentalService();
         this.courseService = new CourseService();
+        ScheduleDao scheduleDao = new JdbcScheduleDao();
+        this.scheduleService = new ScheduleService(scheduleDao);
+        
     }
 
     public ApplicationContext(
@@ -47,7 +59,8 @@ public class ApplicationContext {
             EmployeeService employeeService,
             ServiceTicketService serviceTicketService,
             RentalService rentalService,
-            CourseService courseService
+            CourseService courseService,
+            ScheduleService scheduleService
     ) {
         this.authService = authService;
         this.auditLogService = auditLogService;
@@ -59,7 +72,13 @@ public class ApplicationContext {
         this.serviceTicketService = serviceTicketService;
         this.rentalService = rentalService;
         this.courseService = courseService;
+        this.scheduleService = scheduleService;
     }
+
+    public ScheduleService getScheduleService() {
+        return scheduleService;
+    }
+
 
     public AuthService getAuthService() {
         return authService;

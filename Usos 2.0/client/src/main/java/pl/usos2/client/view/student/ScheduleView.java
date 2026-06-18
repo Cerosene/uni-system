@@ -12,12 +12,15 @@ import javafx.scene.layout.VBox;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import pl.usos2.client.util.MockDataProvider;
-import pl.usos2.client.util.SchedulePlanStore;
 import pl.usos2.server.model.academic.StudentGroup;
 import pl.usos2.server.model.user.Lecturer;
 import pl.usos2.server.model.user.Student;
 import pl.usos2.server.model.user.User;
 import pl.usos2.server.service.course.CourseService;
+import pl.usos2.server.service.schedule.ScheduleService;
+
+
+
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -31,6 +34,7 @@ public class ScheduleView extends VBox {
     private final List<Label> dayHeaders = new ArrayList<>();
     private final User currentUser;
     private final CourseService courseService;
+    private final ScheduleService scheduleService;
 
     private static final String[] DAYS = {
             "schedule_col_time", "day_monday", "day_tuesday", "day_wednesday", "day_thursday", "day_friday"
@@ -40,13 +44,10 @@ public class ScheduleView extends VBox {
             "08:00 - 09:30", "09:45 - 11:15", "11:30 - 13:00", "13:15 - 14:45", "15:00 - 16:30"
     };
 
-    public ScheduleView() {
-        this(null, null);
-    }
-
-    public ScheduleView(User currentUser, CourseService courseService) {
+    public ScheduleView(User currentUser, CourseService courseService, ScheduleService scheduleService) {
         this.currentUser = currentUser;
         this.courseService = courseService;
+        this.scheduleService = scheduleService;
 
         setPadding(new Insets(30));
         setSpacing(20);
@@ -109,7 +110,6 @@ public class ScheduleView extends VBox {
 
         for (int col = 0; col < DAYS.length; col++) {
             Label header = new Label(MockDataProvider.i18n(DAYS[col]));
-            header.setFont(Font.font("System", FontWeight.BOLD, 13));
             header.setWrapText(true);
             StackPane cell = createCell(header, "-fx-background-color: #e2e8f0; -fx-border-color: #cbd5e1;");
             scheduleGrid.add(cell, col, 0);
@@ -169,37 +169,25 @@ public class ScheduleView extends VBox {
         return cell;
     }
 
-    private Map<String, String> buildScheduleEntriesForCurrentUser() {
-        Map<String, String> entries = new HashMap<>();
-        if (currentUser == null || courseService == null) {
-            return entries;
-        }
-
-        List<StudentGroup> groups = new ArrayList<>();
-        if (currentUser instanceof Student student) {
-            groups = courseService.getGroupsForStudent(student);
-        } else if (currentUser instanceof Lecturer lecturer) {
-            groups = courseService.getGroupsForLecturer(lecturer);
-        }
-
-        for (StudentGroup group : groups) {
-            Map<String, String> groupPlan = SchedulePlanStore.getPlanForGroup(group.getId());
-
-            if (groupPlan.isEmpty()) {
-                int day = (int) (group.getId() % 5);
-                int slot = (int) (group.getId() % TIME_SLOTS.length);
-                String key = day + "_" + slot;
-                entries.put(key, formatGroupEntry(group));
-                continue;
-            }
-
-            for (Map.Entry<String, String> cell : groupPlan.entrySet()) {
-                entries.put(cell.getKey(), cell.getValue());
-            }
-        }
-
+  
+   private Map<String, String> buildScheduleEntriesForCurrentUser() {
+    Map<String, String> entries = new HashMap<>();
+    if (currentUser == null || courseService == null || scheduleService == null) {
         return entries;
     }
+
+    if (currentUser instanceof Student student) {
+        List<StudentGroup> groups = courseService.getGroupsForStudent(student);
+        for (StudentGroup group : groups) {
+            entries.putAll(scheduleService.getSchedule(group.getId()));
+        }
+    } else if (currentUser instanceof Lecturer lecturer) {
+       
+        entries.putAll(scheduleService.getScheduleForLecturer(lecturer.getId()));
+    }
+
+    return entries;
+}
 
     private String formatGroupEntry(StudentGroup group) {
         if (group == null) {
@@ -213,10 +201,11 @@ public class ScheduleView extends VBox {
         return courseName + "\n" + lecturerName;
     }
 
+    private boolean isEnglish() {
+        return "en".equalsIgnoreCase(MockDataProvider.getCurrentLocale().getLanguage());
+    }
+
     private void refreshLocalization() {
         titleLabel.setText(MockDataProvider.i18n("schedule_title_main"));
-        for (int i = 0; i < dayHeaders.size(); i++) {
-            dayHeaders.get(i).setText(MockDataProvider.i18n(DAYS[i]));
-        }
     }
 }

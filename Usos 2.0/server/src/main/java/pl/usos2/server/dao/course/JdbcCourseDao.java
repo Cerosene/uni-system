@@ -156,4 +156,17 @@ public class JdbcCourseDao implements CourseDao {
     private interface SqlParameterSetter {
         void set(PreparedStatement statement) throws SQLException;
     }
+
+    @Override
+    public void updateLecturerForCourse(Long courseId, Long lecturerId) {
+        String sql = "UPDATE USOS.SUBJECTS SET LECTURER_ID = ? WHERE SUBJECT_ID = ?";
+        try (Connection conn = DatabaseConnection.getConnection();
+            PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setLong(1, lecturerId);
+            ps.setLong(2, courseId);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            throw new IllegalStateException("Ошибка при обновлении преподавателя предмета", e);
+        }
+    }
 }

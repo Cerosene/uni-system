@@ -25,7 +25,7 @@ public class LecturerCoursesView extends ScrollPane {
 
     private final Label titleLabel;
     private final FlowPane coursesGrid;
-    private final CourseService courseService; // Pole klasy do użycia w przyciskach
+    private final CourseService courseService; 
 
     public LecturerCoursesView(User currentUser, CourseService courseService) {
         this.courseService = courseService;
@@ -86,26 +86,31 @@ public class LecturerCoursesView extends ScrollPane {
 
         infoRow.getChildren().addAll(lecturerLbl, studentsCountLbl);
 
-        // Przycisk "Lista studentów" - dodany do karty
+       
+       
         Button viewStudentsBtn = new Button("Lista studentów");
         viewStudentsBtn.setMaxWidth(Double.MAX_VALUE);
         viewStudentsBtn.setStyle("-fx-background-color: #3b82f6; -fx-text-fill: white; -fx-font-weight: bold;");
-        viewStudentsBtn.setOnAction(e -> {
 
+        viewStudentsBtn.setOnAction(e -> {
+          
             List<StudentGroup> allGroups = courseService.getAllGroups();
 
+           
             List<StudentGroup> courseGroups = allGroups.stream()
                     .filter(g -> g.getCourse() != null && g.getCourse().getId().equals(course.getId()))
                     .collect(Collectors.toList());
 
+           
             if (!courseGroups.isEmpty()) {
-                StudentGroup targetGroup = courseGroups.get(0);
+                StudentGroup targetGroup = courseGroups.get(0); 
                 setContent(new StudentListView(
                         this.courseService,
-                        targetGroup.getId(),
+                        targetGroup.getId(),   
                         targetGroup.getName()
                 ));
             } else {
+                
                 new Alert(Alert.AlertType.WARNING, "Brak przypisanej grupy dla tego kursu!").show();
             }
         });

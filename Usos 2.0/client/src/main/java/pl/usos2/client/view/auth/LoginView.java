@@ -9,7 +9,6 @@ import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import pl.usos2.client.MainApp;
 
-// Подключаем серверную логику авторизации и модель пользователя
 import pl.usos2.server.service.auth.AuthService;
 import pl.usos2.server.model.user.User;
 

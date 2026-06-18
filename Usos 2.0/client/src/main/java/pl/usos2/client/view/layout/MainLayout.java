@@ -112,8 +112,8 @@ public class MainLayout extends BorderPane {
     private void addStudentMenu(VBox sidebar) {
         sidebar.getChildren().addAll(
                 createNavButton("dashboard", () -> setContent(new DashboardView(this.role, this))),
-                createNavButton("schedule", () -> setContent(new ScheduleView(this.currentUser, context.getCourseService()))),
-                createNavButton("grades", () -> setContent(new GradesView(this.currentUser, context.getGradeService()))),
+                createNavButton("schedule", () -> setContent(new ScheduleView(this.currentUser, context.getCourseService(), context.getScheduleService()))),
+                createNavButton("grades", () -> setContent(new GradesView(this.currentUser, context.getGradeService(), context.getCourseService()))),
                 createNavButton("messages", () -> setContent(new MessagesView(this.currentUser, context.getMessageService(), context.getAuthService()))),
                 createNavButton("requests", () -> setContent(new ApplicationsView(this.currentUser, context.getRequestService()))),
                 createNavButton("payments", () -> setContent(new PaymentsView(this.currentUser, context.getPaymentService()))),
@@ -128,7 +128,7 @@ public class MainLayout extends BorderPane {
                 createNavButton("grades", () -> setContent(new LecturerGradesView(this.currentUser, context.getGradeService()))),
                 createNavButton("messages", () -> setContent(new LecturerMessagesView(this.currentUser, context.getMessageService(), context.getAuthService()))),
                 createNavButton("course", () -> setContent(new LecturerCoursesView(this.currentUser, context.getCourseService()))),
-                createNavButton("schedule", () -> setContent(new ScheduleView(this.currentUser, context.getCourseService())))
+                createNavButton("schedule", () -> setContent(new ScheduleView(this.currentUser, context.getCourseService(), context.getScheduleService())))
 
 
         );
@@ -137,9 +137,9 @@ public class MainLayout extends BorderPane {
     private void addAdminMenu(VBox sidebar) {
         sidebar.getChildren().addAll(
                 createNavButton("dashboard", () -> setContent(new DashboardView(this.role, this))),
-                createNavButton("users", () -> setContent(new UserManagementView(context.getAuthService()))),
+                createNavButton("users", () -> setContent(new UserManagementView(context.getAuthService(), context.getCourseService()))),
                 createNavButton("employees", () -> setContent(new EmployeeListView(context.getEmployeeService()))),
-                createNavButton("schedule", () -> setContent(new AdminScheduleView(context.getCourseService()))),
+                createNavButton("schedule", () -> setContent(new AdminScheduleView(context.getCourseService(), context.getScheduleService(), context.getAuthService()))),
                 createNavButton("requests", () -> setContent(new SystemRequestsView(context.getRequestService()))),
                 createNavButton("tickets", () -> setContent(new AdminTicketsView(context.getServiceTicketService()))),
                 createNavButton("payments", () -> setContent(new AdminPaymentsView(context.getPaymentService()))),

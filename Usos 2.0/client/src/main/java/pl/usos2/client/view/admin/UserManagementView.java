@@ -1,5 +1,6 @@
 package pl.usos2.client.view.admin;
 
+import javafx.event.ActionEvent;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.collections.transformation.FilteredList;
@@ -24,7 +25,10 @@ import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
+import javafx.util.StringConverter;
 import pl.usos2.client.util.MockDataProvider;
+import pl.usos2.server.model.academic.Course;
+import pl.usos2.server.model.academic.StudentGroup;
 import pl.usos2.server.model.enumtype.Semester;
 import pl.usos2.server.model.enumtype.UserRole;
 import pl.usos2.server.model.user.Administrator;
@@ -32,6 +36,7 @@ import pl.usos2.server.model.user.Lecturer;
 import pl.usos2.server.model.user.Student;
 import pl.usos2.server.model.user.User;
 import pl.usos2.server.service.auth.AuthService;
+import pl.usos2.server.service.course.CourseService;
 
 import java.util.Comparator;
 import java.util.Locale;
@@ -41,12 +46,25 @@ import java.util.stream.Collectors;
 public class UserManagementView extends VBox {
 
     private final AuthService authService;
+    private final CourseService courseService;
     private final ObservableList<UserRow> allUsers;
     private final FilteredList<UserRow> filteredUsers;
     private final TableView<UserRow> table;
 
-    public UserManagementView(AuthService authService) {
+    private final Label titleLabel;
+    private final Button addUserBtn;
+    private final Label searchLabel;
+    private final TextField searchField;
+    private final TableColumn<UserRow, String> idCol;
+    private final TableColumn<UserRow, String> nameCol;
+    private final TableColumn<UserRow, String> roleCol;
+    private final TableColumn<UserRow, String> statusCol;
+    private final Button changeStatusBtn;
+    private final Button deleteUserBtn;
+
+    public UserManagementView(AuthService authService, CourseService courseService) {
         this.authService = authService;
+        this.courseService = courseService;
 
         setPadding(new Insets(30));
         setSpacing(20);
@@ -55,33 +73,33 @@ public class UserManagementView extends VBox {
         HBox header = new HBox();
         header.setAlignment(Pos.CENTER_LEFT);
 
-        Label title = new Label(MockDataProvider.i18n("user_management_title"));
-        title.setFont(Font.font("System", FontWeight.BOLD, 24));
+        titleLabel = new Label();
+        titleLabel.setFont(Font.font("System", FontWeight.BOLD, 24));
 
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
-        Button addUserBtn = new Button(MockDataProvider.i18n("btn_add_new_user"));
+        addUserBtn = new Button();
         addUserBtn.setStyle("-fx-background-color: #2563eb; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 6;");
 
-        header.getChildren().addAll(title, spacer, addUserBtn);
+        header.getChildren().addAll(titleLabel, spacer, addUserBtn);
 
         HBox searchBar = new HBox(10);
         searchBar.setAlignment(Pos.CENTER_LEFT);
 
-        TextField searchField = new TextField();
-        searchField.setPromptText(MockDataProvider.i18n("search_users_holder"));
+        searchField = new TextField();
         searchField.setPrefWidth(320);
+        searchLabel = new Label();
 
-        searchBar.getChildren().addAll(new Label(MockDataProvider.i18n("label_search")), searchField);
+        searchBar.getChildren().addAll(searchLabel, searchField);
 
         table = new TableView<>();
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
 
-        TableColumn<UserRow, String> idCol = new TableColumn<>("ID");
-        TableColumn<UserRow, String> nameCol = new TableColumn<>(MockDataProvider.i18n("col_user_name"));
-        TableColumn<UserRow, String> roleCol = new TableColumn<>(MockDataProvider.i18n("col_user_role"));
-        TableColumn<UserRow, String> statusCol = new TableColumn<>(MockDataProvider.i18n("col_user_status"));
+        idCol = new TableColumn<>();
+        nameCol = new TableColumn<>();
+        roleCol = new TableColumn<>();
+        statusCol = new TableColumn<>();
 
         idCol.setCellValueFactory(d -> d.getValue().idProperty());
         nameCol.setCellValueFactory(d -> d.getValue().nameProperty());
@@ -110,17 +128,20 @@ public class UserManagementView extends VBox {
         addUserBtn.setOnAction(e -> openAddUserDialog());
 
         HBox actionsBar = new HBox(10);
-        Button changeStatusBtn = new Button(isEnglish() ? "Change account status" : "Zmień status konta");
+        changeStatusBtn = new Button();
         changeStatusBtn.setStyle("-fx-background-color: #0ea5e9; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 6;");
         changeStatusBtn.setOnAction(e -> changeSelectedUserStatus());
 
-        Button deleteUserBtn = new Button(isEnglish() ? "Delete account" : "Usuń konto");
+        deleteUserBtn = new Button();
         deleteUserBtn.setStyle("-fx-background-color: #ef4444; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 6;");
         deleteUserBtn.setOnAction(e -> deleteSelectedUser());
 
         actionsBar.getChildren().addAll(changeStatusBtn, deleteUserBtn);
 
         getChildren().addAll(header, searchBar, table, actionsBar);
+
+        refreshLocalization();
+        MockDataProvider.currentLocaleProperty().addListener((obs, oldLocale, newLocale) -> refreshLocalization());
     }
 
     private void openAddUserDialog() {
@@ -159,7 +180,65 @@ public class UserManagementView extends VBox {
         grid.add(new Label(MockDataProvider.i18n("col_user_role") + ":"), 0, 4);
         grid.add(roleInput, 1, 4);
 
+     
+        Label groupLabel = new Label(isEnglish() ? "Group:" : "Grupa:");
+        ComboBox<StudentGroup> groupCombo = new ComboBox<>(FXCollections.observableArrayList(courseService.getAllGroups()));
+        groupCombo.setConverter(new StringConverter<>() {
+            @Override public String toString(StudentGroup g) { return g == null ? "" : g.getName(); }
+            @Override public StudentGroup fromString(String s) { return null; }
+        });
+
+        Label courseLabel = new Label(isEnglish() ? "Course:" : "Przedmiot:");
+        ComboBox<Course> courseCombo = new ComboBox<>(FXCollections.observableArrayList(courseService.getAllCourses()));
+        courseCombo.setConverter(new StringConverter<>() {
+            @Override public String toString(Course c) { return c == null ? "" : c.getName(); }
+            @Override public Course fromString(String s) { return null; }
+        });
+
+        grid.add(groupLabel, 0, 5);
+        grid.add(groupCombo, 1, 5);
+        grid.add(courseLabel, 0, 6);
+        grid.add(courseCombo, 1, 6);
+
+     
+        roleInput.valueProperty().addListener((obs, oldVal, newVal) -> {
+            boolean isStudent = newVal.contains("Stud");
+            boolean isLecturer = newVal.contains("Wyk") || newVal.contains("Lectur");
+
+            groupLabel.setVisible(isStudent);
+            groupCombo.setVisible(isStudent);
+            courseLabel.setVisible(isLecturer);
+            courseCombo.setVisible(isLecturer);
+        });
+        
+  
+        groupLabel.setVisible(true);
+        groupCombo.setVisible(true);
+        courseLabel.setVisible(false);
+        courseCombo.setVisible(false);
+
         dialog.getDialogPane().setContent(grid);
+
+   
+        Button btSave = (Button) dialog.getDialogPane().lookupButton(saveButtonType);
+        btSave.addEventFilter(ActionEvent.ACTION, event -> {
+            String fName = firstNameInput.getText() == null ? "" : firstNameInput.getText().trim();
+            String lName = lastNameInput.getText() == null ? "" : lastNameInput.getText().trim();
+            String mail = emailInput.getText() == null ? "" : emailInput.getText().trim();
+            String pass = passwordInput.getText() == null ? "" : passwordInput.getText().trim();
+            
+            String roleValue = roleInput.getValue();
+            boolean isStudent = roleValue != null && roleValue.contains("Stud");
+            boolean isLecturer = roleValue != null && (roleValue.contains("Wyk") || roleValue.contains("Lectur"));
+
+            if (fName.isEmpty() || lName.isEmpty() || mail.isEmpty() || pass.isEmpty() ||
+                (isStudent && groupCombo.getValue() == null) || 
+                (isLecturer && courseCombo.getValue() == null)) {
+                
+                showError(MockDataProvider.i18n("fill_all_fields_error"));
+                event.consume(); 
+            }
+        });
 
         dialog.setResultConverter(dialogButton -> {
             if (dialogButton != saveButtonType) {
@@ -171,33 +250,60 @@ public class UserManagementView extends VBox {
             String email = emailInput.getText() == null ? "" : emailInput.getText().trim();
             String password = passwordInput.getText() == null ? "" : passwordInput.getText().trim();
 
-            if (firstName.isEmpty() || lastName.isEmpty() || email.isEmpty() || password.isEmpty()) {
+            String roleValue = roleInput.getValue();
+            boolean isStudent = roleValue != null && roleValue.contains("Stud");
+            boolean isLecturer = roleValue != null && (roleValue.contains("Wyk") || roleValue.contains("Lectur"));
+
+         
+            boolean basicEmpty = firstName.isEmpty() || lastName.isEmpty() || email.isEmpty() || password.isEmpty();
+            boolean studentEmpty = isStudent && groupCombo.getValue() == null;
+            boolean lecturerEmpty = isLecturer && courseCombo.getValue() == null;
+
+            if (basicEmpty || studentEmpty || lecturerEmpty) {
                 return null;
             }
 
             long id = nextIncrementalUserId();
             String codeNumber = String.format(Locale.ROOT, "%04d", id);
+            UserRow resultRow;
 
-            String roleValue = roleInput.getValue();
-            String normalizedRole = roleValue == null ? "" : roleValue.toLowerCase(Locale.ROOT);
+            String normalizedRole = roleValue.toLowerCase(Locale.ROOT);
             if (normalizedRole.contains("wyk") || normalizedRole.contains("lectur")) {
-                return new UserRow(new Lecturer(id, firstName, lastName, email, password, "EMP" + codeNumber, "Dr."));
+                resultRow = new UserRow(new Lecturer(id, firstName, lastName, email, password, "EMP" + codeNumber, "Dr."));
+                resultRow.setSelectedCourse(courseCombo.getValue());
+            } else if (normalizedRole.contains("admin")) {
+                resultRow = new UserRow(new Administrator(id, firstName, lastName, email, password, "ADM" + codeNumber));
+            } else {
+                resultRow = new UserRow(new Student(id, firstName, lastName, email, password, "ST" + codeNumber, "Informatyka", Semester.THIRD));
+                resultRow.setSelectedGroup(groupCombo.getValue());
             }
-            if (normalizedRole.contains("admin")) {
-                return new UserRow(new Administrator(id, firstName, lastName, email, password, "ADM" + codeNumber));
-            }
-            return new UserRow(new Student(id, firstName, lastName, email, password, "ST" + codeNumber, "Informatyka", Semester.THIRD));
+            return resultRow;
         });
 
         dialog.showAndWait().ifPresent(newUserRow -> {
-            try {
-                authService.register(newUserRow.originalUser);
-                refreshUsers();
-            } catch (IllegalArgumentException ex) {
-                showError(ex.getMessage());
-            }
-        });
+    try {
+        User user = newUserRow.originalUser;
+
+        User savedUser = authService.register(user);
+        
+
+        if (savedUser instanceof Student && newUserRow.getSelectedGroup() != null) {
+            courseService.enrollStudentToGroup((Student) savedUser, newUserRow.getSelectedGroup());
+        } 
+        
+     
+        else if (savedUser instanceof Lecturer && newUserRow.getSelectedCourse() != null) {
+        
+            courseService.updateCourseLecturer(newUserRow.getSelectedCourse().getId(), savedUser.getId());
+        }
+        
+        refreshUsers();
+    } catch (IllegalArgumentException ex) {
+        showError(ex.getMessage());
     }
+});
+    }
+           
 
     private void changeSelectedUserStatus() {
         UserRow selectedRow = table.getSelectionModel().getSelectedItem();
@@ -307,6 +413,25 @@ public class UserManagementView extends VBox {
         alert.showAndWait();
     }
 
+    private void refreshLocalization() {
+        boolean isEn = isEnglish();
+        titleLabel.setText(MockDataProvider.i18n("user_management_title"));
+        addUserBtn.setText(MockDataProvider.i18n("btn_add_new_user"));
+        searchLabel.setText(MockDataProvider.i18n("label_search"));
+        searchField.setPromptText(MockDataProvider.i18n("search_users_holder"));
+
+        idCol.setText("ID");
+        nameCol.setText(MockDataProvider.i18n("col_user_name"));
+        roleCol.setText(MockDataProvider.i18n("col_user_role"));
+        statusCol.setText(MockDataProvider.i18n("col_user_status"));
+
+        changeStatusBtn.setText(isEn ? "Change account status" : "Zmień status konta");
+        deleteUserBtn.setText(isEn ? "Delete account" : "Usuń konto");
+
+        refreshUsers(); 
+        table.refresh();
+    }
+
     private void showError(String message) {
         Alert alert = new Alert(Alert.AlertType.ERROR);
         alert.setTitle(MockDataProvider.i18n("alert_error_title"));
@@ -321,6 +446,8 @@ public class UserManagementView extends VBox {
         private final javafx.beans.property.StringProperty name;
         private final javafx.beans.property.StringProperty role;
         private final javafx.beans.property.StringProperty status;
+        private StudentGroup selectedGroup;
+        private Course selectedCourse;
 
         public UserRow(User user) {
             this.originalUser = user;
@@ -373,6 +500,22 @@ public class UserManagementView extends VBox {
 
         public javafx.beans.property.StringProperty statusProperty() {
             return status;
+        }
+
+        public StudentGroup getSelectedGroup() {
+            return selectedGroup;
+        }
+
+        public void setSelectedGroup(StudentGroup selectedGroup) {
+            this.selectedGroup = selectedGroup;
+        }
+
+        public Course getSelectedCourse() {
+            return selectedCourse;
+        }
+
+        public void setSelectedCourse(Course selectedCourse) {
+            this.selectedCourse = selectedCourse;
         }
     }
 }

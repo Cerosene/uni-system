@@ -2,13 +2,16 @@ package pl.usos2.client.view.admin;
 
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.collections.FXCollections;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonBar;
 import javafx.scene.control.ButtonType;
-import javafx.scene.control.ChoiceDialog;
 import javafx.scene.control.ComboBox;
+import javafx.scene.control.Dialog;
+import javafx.util.StringConverter;
 import javafx.scene.control.Label;
+import pl.usos2.client.util.ErrorDialogUtil;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
@@ -18,22 +21,32 @@ import pl.usos2.client.util.MockDataProvider;
 import pl.usos2.client.util.SchedulePlanStore;
 import pl.usos2.server.model.academic.Course;
 import pl.usos2.server.model.academic.StudentGroup;
+import pl.usos2.server.model.enumtype.UserRole;
+import pl.usos2.server.model.user.Lecturer;
+import pl.usos2.server.service.auth.AuthService;
 import pl.usos2.server.service.course.CourseService;
+import pl.usos2.server.service.schedule.ScheduleService;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 public class AdminScheduleView extends VBox {
 
     private final CourseService courseService;
+    private final AuthService authService;
+    private final List<Lecturer> availableLecturers = new ArrayList<>();
     private final List<StudentGroup> availableGroups = new ArrayList<>();
     private final List<Course> availableCourses = new ArrayList<>();
 
     private final Map<String, String> scheduleData = new HashMap<>();
+    private final ScheduleService scheduleService;
 
     private ComboBox<StudentGroup> groupComboBox;
+    private final Label titleLabel;
+    private final Label selectGroupLabel;
     private GridPane scheduleGrid;
     private Button saveButton;
 
@@ -53,8 +66,11 @@ public class AdminScheduleView extends VBox {
             "15:00 - 16:30"
     };
 
-    public AdminScheduleView(CourseService courseService) {
+    public AdminScheduleView(CourseService courseService, ScheduleService scheduleService, AuthService authService) {
         this.courseService = courseService;
+        this.scheduleService = scheduleService;
+        this.authService = authService;
+
 
         setPadding(new Insets(30));
         setSpacing(20);
@@ -62,18 +78,17 @@ public class AdminScheduleView extends VBox {
 
         reloadDomainData();
 
-        Label title = new Label(MockDataProvider.i18n("global_schedule_title"));
-        title.setFont(Font.font("System", FontWeight.BOLD, 24));
+        titleLabel = new Label();
+        titleLabel.setFont(Font.font("System", FontWeight.BOLD, 24));
 
         HBox configHeader = new HBox(15);
         configHeader.setAlignment(Pos.CENTER_LEFT);
 
-        Label selectGroupLabel = new Label(MockDataProvider.i18n("select_group_prompt"));
+        selectGroupLabel = new Label();
         selectGroupLabel.setFont(Font.font("System", FontWeight.SEMI_BOLD, 14));
 
         groupComboBox = new ComboBox<>();
         groupComboBox.getItems().addAll(availableGroups);
-        groupComboBox.setPromptText(MockDataProvider.i18n("choose_group_holder"));
         groupComboBox.setMinWidth(320);
         groupComboBox.setCellFactory(list -> new javafx.scene.control.ListCell<>() {
             @Override
@@ -91,6 +106,7 @@ public class AdminScheduleView extends VBox {
         });
 
         groupComboBox.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
+          
             if (newVal != null) {
                 loadScheduleForGroup(newVal);
                 saveButton.setDisable(false);
@@ -101,7 +117,7 @@ public class AdminScheduleView extends VBox {
             buildGrid();
         });
 
-        saveButton = new Button(MockDataProvider.getCurrentLocale().getLanguage().equals("en") ? "Save schedule" : "Zapisz plan");
+        saveButton = new Button();
         saveButton.setDisable(true);
         saveButton.setStyle("-fx-background-color: #2563eb; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 16; -fx-background-radius: 6;");
         saveButton.setOnAction(e -> saveScheduleForSelectedGroup());
@@ -114,16 +130,32 @@ public class AdminScheduleView extends VBox {
 
         buildGrid();
 
-        getChildren().addAll(title, configHeader, scheduleGrid);
+        getChildren().addAll(titleLabel, configHeader, scheduleGrid);
+
+        refreshLocalization();
+        MockDataProvider.currentLocaleProperty().addListener((obs, oldLocale, newLocale) -> refreshLocalization());
     }
 
-    private void reloadDomainData() {
-        availableGroups.clear();
-        availableCourses.clear();
-        availableGroups.addAll(courseService.getAllGroups());
-        availableCourses.addAll(courseService.getAllCourses());
+   private void reloadDomainData() {
+    availableGroups.clear();
+    availableCourses.clear();
+    availableLecturers.clear();
+    
+    List<StudentGroup> groups = courseService.getAllGroups();
+    List<Course> courses = courseService.getAllCourses();
+    List<Lecturer> lecturers = authService.getUsersByRole(UserRole.LECTURER).stream()
+            .filter(u -> u instanceof Lecturer)
+            .map(u -> (Lecturer) u)
+            .collect(Collectors.toList());
+    
+    if (groups != null) availableGroups.addAll(groups);
+    if (courses != null) availableCourses.addAll(courses);
+    if (lecturers != null) availableLecturers.addAll(lecturers);
+    
+    if (groupComboBox != null) {
+        groupComboBox.getItems().setAll(availableGroups);
     }
-
+}
     private void buildGrid() {
         scheduleGrid.getChildren().clear();
 
@@ -182,7 +214,7 @@ public class AdminScheduleView extends VBox {
 
     private void loadScheduleForGroup(StudentGroup group) {
         scheduleData.clear();
-        scheduleData.putAll(SchedulePlanStore.getPlanForGroup(group.getId()));
+        scheduleData.putAll(scheduleService.getSchedule(group.getId()));
 
         if (scheduleData.isEmpty()) {
             String classText = formatGroupEntry(group);
@@ -194,34 +226,95 @@ public class AdminScheduleView extends VBox {
 
     private void saveScheduleForSelectedGroup() {
         StudentGroup selected = groupComboBox.getValue();
-        if (selected == null) {
-            return;
+        if (selected == null) return;
+
+        try {
+          
+            Map<String, String> currentInDb = scheduleService.getSchedule(selected.getId());
+            
+           
+            for (String slotKey : currentInDb.keySet()) {
+                if (!scheduleData.containsKey(slotKey)) {
+                 
+                    scheduleService.deleteEntry(selected.getId(), slotKey);
+                }
+            }
+
+          
+            for (Map.Entry<String, String> entry : scheduleData.entrySet()) {
+                scheduleService.saveEntry(selected.getId(), entry.getKey(), entry.getValue());
+            }
+            
+            Alert alert = new Alert(Alert.AlertType.INFORMATION);
+            alert.setContentText("Plan zajęć został zapisany.");
+            alert.showAndWait();
+            
+        } catch (Exception e) {
+            ErrorDialogUtil.showError("Błąd", "Błąd zapisu: " + e.getMessage());
         }
-
-        SchedulePlanStore.savePlanForGroup(selected.getId(), scheduleData);
-
-        Alert alert = new Alert(Alert.AlertType.INFORMATION);
-        alert.setTitle(MockDataProvider.i18n("alert_info_title"));
-        alert.setHeaderText(null);
-        alert.setContentText(MockDataProvider.getCurrentLocale().getLanguage().equals("en")
-                ? "Schedule saved successfully."
-                : "Plan zajęć został zapisany.");
-        alert.showAndWait();
     }
 
+    
     private void handleAddClass(String slotKey) {
         if (availableCourses.isEmpty()) {
             return;
         }
 
-        ChoiceDialog<Course> dialog = new ChoiceDialog<>(availableCourses.get(0), availableCourses);
+        Dialog<String[]> dialog = new Dialog<>();
         dialog.setTitle(MockDataProvider.i18n("add_class_dialog_title"));
         dialog.setHeaderText(MockDataProvider.i18n("add_class_dialog_header"));
-        dialog.setContentText(MockDataProvider.i18n("add_class_dialog_content"));
 
-        dialog.showAndWait().ifPresent(course -> {
-            String text = course.getName() + "\n" + (course.getLecturer() != null ? course.getLecturer().getFullName() : "");
-            scheduleData.put(slotKey, text.trim());
+        ButtonType saveButtonType = new ButtonType(MockDataProvider.i18n("btn_save_label"), ButtonBar.ButtonData.OK_DONE);
+        dialog.getDialogPane().getButtonTypes().addAll(saveButtonType, ButtonType.CANCEL);
+
+        GridPane grid = new GridPane();
+        grid.setHgap(10);
+        grid.setVgap(10);
+        grid.setPadding(new Insets(20, 150, 10, 10));
+
+        ComboBox<Course> courseCombo = new ComboBox<>(FXCollections.observableArrayList(availableCourses));
+        courseCombo.setConverter(new StringConverter<>() {
+            @Override public String toString(Course c) { return c == null ? "" : c.getName(); }
+            @Override public Course fromString(String s) { return null; }
+        });
+        
+        ComboBox<Lecturer> lecturerCombo = new ComboBox<>();
+        lecturerCombo.setConverter(new StringConverter<>() {
+            @Override public String toString(Lecturer l) { return l == null ? "" : l.getFullName(); }
+            @Override public Lecturer fromString(String s) { return null; }
+        });
+
+       
+      
+        courseCombo.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal != null) {
+            
+                List<Lecturer> lecturers = authService.getLecturersByCourseId(newVal.getId());
+                lecturerCombo.setItems(FXCollections.observableArrayList(lecturers));
+            }
+        });
+        courseCombo.getSelectionModel().selectFirst();
+
+        boolean isEn = "en".equals(MockDataProvider.getCurrentLocale().getLanguage());
+        grid.add(new Label(isEn ? "Course:" : "Przedmiot:"), 0, 0);
+        grid.add(courseCombo, 1, 0);
+        grid.add(new Label(MockDataProvider.i18n("role_lecturer") + ":"), 0, 1);
+        grid.add(lecturerCombo, 1, 1);
+
+        dialog.getDialogPane().setContent(grid);
+
+        dialog.setResultConverter(dialogButton -> {
+            if (dialogButton == saveButtonType) {
+                Course c = courseCombo.getValue();
+                Lecturer l = lecturerCombo.getValue();
+                return new String[]{c != null ? c.getName() : "", l != null ? l.getFullName() : ""};
+            }
+            return null;
+        });
+
+        dialog.showAndWait().ifPresent(result -> {
+            String classText = (result[0] + "\n" + result[1]).trim();
+            scheduleData.put(slotKey, classText);
             buildGrid();
         });
     }
@@ -251,5 +344,21 @@ public class AdminScheduleView extends VBox {
         String courseName = group.getCourse() != null ? group.getCourse().getName() : group.getName();
         String lecturerName = group.getLecturer() != null ? group.getLecturer().getFullName() : "";
         return lecturerName.isBlank() ? courseName : courseName + "\n" + lecturerName;
+    }
+
+    private void refreshLocalization() {
+        boolean isEn = "en".equals(MockDataProvider.getCurrentLocale().getLanguage());
+        titleLabel.setText(MockDataProvider.i18n("global_schedule_title"));
+        selectGroupLabel.setText(MockDataProvider.i18n("select_group_prompt"));
+        groupComboBox.setPromptText(MockDataProvider.i18n("choose_group_holder"));
+        saveButton.setText(isEn ? "Save schedule" : "Zapisz plan");
+
+        days[0] = MockDataProvider.i18n("day_monday");
+        days[1] = MockDataProvider.i18n("day_tuesday");
+        days[2] = MockDataProvider.i18n("day_wednesday");
+        days[3] = MockDataProvider.i18n("day_thursday");
+        days[4] = MockDataProvider.i18n("day_friday");
+
+        buildGrid();
     }
 }

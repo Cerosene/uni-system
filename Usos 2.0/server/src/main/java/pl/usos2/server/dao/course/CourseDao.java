@@ -17,4 +17,5 @@ public interface CourseDao {
     boolean existsById(Long courseId);
 
     boolean existsByCode(String courseCode);
+    void updateLecturerForCourse(Long courseId, Long lecturerId);
 }

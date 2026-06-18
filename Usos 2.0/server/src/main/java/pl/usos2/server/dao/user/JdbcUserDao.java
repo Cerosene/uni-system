@@ -8,7 +8,7 @@ import pl.usos2.server.model.user.Employee;
 import pl.usos2.server.model.user.Lecturer;
 import pl.usos2.server.model.user.Student;
 import pl.usos2.server.model.user.User;
-
+import java.util.stream.Collectors;
 import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -579,6 +579,21 @@ public class JdbcUserDao implements UserDao {
         user.setActive(toActive(resultSet.getString("active_flag")));
         return user;
     }
+
+   public List<Lecturer> getLecturersBySubjectId(Long subjectId) {
+    // Используем BASE_SELECT, чтобы mapUser точно нашел все нужные поля
+    String sql = BASE_SELECT + 
+                 " JOIN subjects s ON u.user_id = s.lecturer_id " +
+                 " WHERE s.subject_id = ?";
+    
+    // executeListQuery внутри себя вызывает mapUser, который знает все поля BASE_SELECT
+    List<User> users = executeListQuery(sql, statement -> statement.setLong(1, subjectId));
+    
+    return users.stream()
+            .filter(u -> u instanceof Lecturer)
+            .map(lecturer -> (Lecturer) lecturer)
+            .collect(Collectors.toList());
+}
 
     private boolean toActive(String activeFlag) {
         return "Y".equalsIgnoreCase(activeFlag);

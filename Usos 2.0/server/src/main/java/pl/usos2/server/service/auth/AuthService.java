@@ -6,6 +6,8 @@ import pl.usos2.server.model.enumtype.UserRole;
 import pl.usos2.server.model.user.User;
 import pl.usos2.server.service.audit.AuditLogService;
 import pl.usos2.server.util.ValidationUtils;
+import pl.usos2.server.model.user.Lecturer;
+import java.util.stream.Collectors;
 
 import java.util.List;
 import java.util.logging.Logger;
@@ -228,5 +230,19 @@ public class AuthService {
         } catch (RuntimeException exception) {
             logger.warning("Audit log write failed: " + exception.getMessage());
         }
+    }
+
+    public List<Lecturer> getAllLecturers() {
+        return userDao.findAll().stream()
+                .filter(u -> u instanceof Lecturer)
+                .map(u -> (Lecturer) u)
+                .collect(Collectors.toList());
+    }
+
+
+
+    public List<Lecturer> getLecturersByCourseId(Long courseId) {
+        
+        return ((JdbcUserDao) userDao).getLecturersBySubjectId(courseId);
     }
 }

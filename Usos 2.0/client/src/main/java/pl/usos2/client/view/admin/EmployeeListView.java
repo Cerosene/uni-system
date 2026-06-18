@@ -8,6 +8,7 @@ import pl.usos2.client.util.MockDataProvider;
 import pl.usos2.server.model.enumtype.UserRole;
 import pl.usos2.server.model.user.Employee;
 import pl.usos2.server.service.admin.EmployeeService;
+import pl.usos2.client.util.ErrorDialogUtil;
 
 import java.math.BigDecimal;
 
@@ -21,8 +22,24 @@ public class EmployeeListView extends BorderPane {
     private final TextField lastNameField = new TextField();
     private final TextField emailField = new TextField();
     private final TextField salaryField = new TextField();
-    private final CheckBox activeCheckBox = new CheckBox(MockDataProvider.i18n("employee_active"));
+    private final CheckBox activeCheckBox = new CheckBox();
     private final ComboBox<UserRole> roleComboBox = new ComboBox<>();
+
+    private final TableColumn<Employee, String> nameCol = new TableColumn<>();
+    private final TableColumn<Employee, String> emailCol = new TableColumn<>();
+    private final TableColumn<Employee, String> posCol = new TableColumn<>();
+    private final TableColumn<Employee, String> salaryCol = new TableColumn<>();
+    private final TableColumn<Employee, String> activeCol = new TableColumn<>();
+
+    private final Label nameLabel = new Label();
+    private final Label surnameLabel = new Label();
+    private final Label emailLabel = new Label();
+    private final Label salaryLabel = new Label();
+    private final Label roleLabel = new Label();
+
+    private final Button saveBtn = new Button();
+    private final Button deleteBtn = new Button();
+    private final Button clearBtn = new Button();
 
     public EmployeeListView(EmployeeService employeeService) {
         this.employeeService = employeeService;
@@ -32,23 +49,27 @@ public class EmployeeListView extends BorderPane {
         refreshTable();
         setCenter(table);
         setRight(createForm());
+
+        refreshLocalization();
+        MockDataProvider.currentLocaleProperty().addListener((obs, oldLocale, newLocale) -> refreshLocalization());
     }
 
     private void setupTable() {
-        TableColumn<Employee, String> nameCol = new TableColumn<>(MockDataProvider.i18n("table_name"));
         nameCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().getFullName()));
 
-        TableColumn<Employee, String> emailCol = new TableColumn<>(MockDataProvider.i18n("table_email"));
         emailCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().getEmail()));
 
-        TableColumn<Employee, String> posCol = new TableColumn<>(MockDataProvider.i18n("table_position"));
         posCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().getPosition()));
 
-        TableColumn<Employee, String> salaryCol = new TableColumn<>(MockDataProvider.i18n("table_salary"));
         salaryCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().getSalary().toString() + " PLN"));
 
-        TableColumn<Employee, String> activeCol = new TableColumn<>(MockDataProvider.i18n("table_status"));
-        activeCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().isActive() ? "Aktywny" : "Nieaktywny"));
+        activeCol.setCellValueFactory(data -> {
+            boolean active = data.getValue().isActive();
+            String text = isEnglish()
+                    ? (active ? "Active" : "Inactive")
+                    : (active ? "Aktywny" : "Nieaktywny");
+            return new javafx.beans.property.SimpleStringProperty(text);
+        });
 
         table.getColumns().addAll(nameCol, emailCol, posCol, salaryCol, activeCol);
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
@@ -64,22 +85,18 @@ public class EmployeeListView extends BorderPane {
         form.setPrefWidth(300);
 
         roleComboBox.setItems(FXCollections.observableArrayList(UserRole.ADMINISTRATOR, UserRole.LECTURER));
-        roleComboBox.setPromptText(MockDataProvider.i18n("select_role"));
         roleComboBox.setMaxWidth(Double.MAX_VALUE);
 
-        Button saveBtn = new Button(MockDataProvider.i18n("btn_save"));
         saveBtn.setOnAction(e -> handleUpdate());
-        Button deleteBtn = new Button(MockDataProvider.i18n("btn_delete"));
         deleteBtn.setOnAction(e -> handleRemove());
-        Button clearBtn = new Button(MockDataProvider.i18n("btn_clear"));
         clearBtn.setOnAction(e -> clearForm());
 
         form.getChildren().addAll(
-                new Label(MockDataProvider.i18n("field_name")), firstNameField,
-                new Label(MockDataProvider.i18n("field_surname")), lastNameField,
-                new Label(MockDataProvider.i18n("field_email")), emailField,
-                new Label(MockDataProvider.i18n("field_salary")), salaryField,
-                new Label(MockDataProvider.i18n("field_role")), roleComboBox,
+                nameLabel, firstNameField,
+                surnameLabel, lastNameField,
+                emailLabel, emailField,
+                salaryLabel, salaryField,
+                roleLabel, roleComboBox,
                 activeCheckBox,
                 saveBtn, clearBtn, deleteBtn
         );
@@ -87,41 +104,27 @@ public class EmployeeListView extends BorderPane {
     }
 
     private void handleUpdate() {
-        if (firstNameField.getText().isEmpty() || emailField.getText().isEmpty() || roleComboBox.getValue() == null) {
-            new Alert(Alert.AlertType.WARNING, MockDataProvider.i18n("error_fields_required")).show();
+      
+        Employee selected = table.getSelectionModel().getSelectedItem();
+        if (selected == null) {
+            ErrorDialogUtil.showWarning("WARNING", MockDataProvider.i18n("error_select_employee"));
             return;
         }
 
-        Employee selected = table.getSelectionModel().getSelectedItem();
-
         try {
             BigDecimal salary = new BigDecimal(salaryField.getText());
-            String roleName = roleComboBox.getValue().toString(); // Rola używana jako pozycja
+            String roleName = roleComboBox.getValue().toString(); 
 
-            if (selected == null) {
-                Employee newEmp = new Employee();
-                newEmp.setId(System.currentTimeMillis() / 1000);
-                newEmp.setFirstName(firstNameField.getText());
-                newEmp.setLastName(lastNameField.getText());
-                newEmp.setEmail(emailField.getText());
-                newEmp.setPosition(roleName); // Позиция теперь равна выбранной роли
-                newEmp.setSalary(salary);
-                newEmp.setActive(activeCheckBox.isSelected());
-                newEmp.setPassword("default123");
-                newEmp.setRole(roleComboBox.getValue());
-                newEmp.setEmployeeNumber("EMP-" + System.currentTimeMillis());
-
-                employeeService.addEmployee(newEmp);
-            } else {
-                employeeService.updateEmployee(selected.getId(), firstNameField.getText(), lastNameField.getText(), emailField.getText(), roleName);
-                employeeService.changeSalary(selected.getId(), salary);
-                employeeService.setEmployeeActive(selected.getId(), activeCheckBox.isSelected());
-            }
+          
+            employeeService.updateEmployee(selected.getId(), firstNameField.getText(), lastNameField.getText(), emailField.getText(), roleName);
+            employeeService.changeSalary(selected.getId(), salary);
+           
+            employeeService.setEmployeeActive(selected.getId(), activeCheckBox.isSelected()); 
 
             refreshTable();
-            clearForm();
+           
         } catch (Exception e) {
-            new Alert(Alert.AlertType.ERROR, MockDataProvider.i18n("error_generic") + e.getMessage()).show();
+            ErrorDialogUtil.showError("ERROR", MockDataProvider.i18n("error_generic") + e.getMessage());
         }
     }
 
@@ -155,5 +158,32 @@ public class EmployeeListView extends BorderPane {
 
     private void refreshTable() {
         table.setItems(FXCollections.observableArrayList(employeeService.getAllEmployees()));
+    }
+
+    private boolean isEnglish() {
+        return "en".equalsIgnoreCase(MockDataProvider.getCurrentLocale().getLanguage());
+    }
+
+    private void refreshLocalization() {
+        nameCol.setText(MockDataProvider.i18n("table_name"));
+        emailCol.setText(MockDataProvider.i18n("table_email"));
+        posCol.setText(MockDataProvider.i18n("table_position"));
+        salaryCol.setText(MockDataProvider.i18n("table_salary"));
+        activeCol.setText(MockDataProvider.i18n("table_status"));
+
+        nameLabel.setText(MockDataProvider.i18n("field_name"));
+        surnameLabel.setText(MockDataProvider.i18n("field_surname"));
+        emailLabel.setText(MockDataProvider.i18n("field_email"));
+        salaryLabel.setText(MockDataProvider.i18n("field_salary"));
+        roleLabel.setText(MockDataProvider.i18n("field_role"));
+
+        saveBtn.setText(MockDataProvider.i18n("btn_save"));
+        deleteBtn.setText(MockDataProvider.i18n("btn_delete"));
+        clearBtn.setText(MockDataProvider.i18n("btn_clear"));
+
+        activeCheckBox.setText(MockDataProvider.i18n("employee_active"));
+        roleComboBox.setPromptText(MockDataProvider.i18n("select_role"));
+
+        table.refresh();
     }
 }

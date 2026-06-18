@@ -28,6 +28,9 @@ import pl.usos2.server.model.enumtype.ServiceTicketStatus;
 import pl.usos2.server.model.enumtype.UserRole;
 import pl.usos2.server.model.user.Lecturer;
 import pl.usos2.server.model.user.Student;
+import java.util.List; 
+import pl.usos2.server.model.academic.Grade; 
+
 
 import java.math.BigDecimal;
 import java.text.DecimalFormat;
@@ -94,10 +97,12 @@ public class DashboardView extends ScrollPane {
             Student student = (Student) mainLayout.getCurrentUser();
             String averageGradeValue = calculateAverageGradeLabel();
             String ectsValue = calculateEctsLabel(student);
+            String studentGroupValue = calculateStudentGroupLabel(student);
             String unpaidBalanceValue = calculateUnpaidBalanceLabel(student);
             statsGrid.getChildren().addAll(
                     createStatCard("dash_stat_gpa", averageGradeValue, "dash_stat_gpa_sub", "#3b82f6"),
                     createStatCard("dash_stat_ects", ectsValue, "dash_stat_ects_sub", "#10b981"),
+                    createStatCard("dash_stat_group", studentGroupValue, "", "#6d28d9"),
                     createStatCard("dash_stat_payments", unpaidBalanceValue, "dash_stat_payments_sub", "#ef4444")
             );
         } else if (role == UserRole.LECTURER) {
@@ -140,8 +145,8 @@ public class DashboardView extends ScrollPane {
 
         if (role == UserRole.STUDENT) {
             actionsGrid.getChildren().addAll(
-                    createActionButton("nav_grades", "Oceny", "#3b82f6", () -> mainLayout.setContent(new GradesView(mainLayout.getCurrentUser(), mainLayout.getContext().getGradeService()))),
-                    createActionButton("nav_schedule", "Plan zajęć", "#10b981", () -> mainLayout.setContent(new ScheduleView(mainLayout.getCurrentUser(), mainLayout.getContext().getCourseService()))),
+                    createActionButton("nav_grades", "Oceny", "#3b82f6", () -> mainLayout.setContent(new GradesView(mainLayout.getCurrentUser(), mainLayout.getContext().getGradeService(), mainLayout.getContext().getCourseService()))),
+                    createActionButton("nav_schedule", "Plan zajęć", "#10b981", () -> mainLayout.setContent(new ScheduleView(mainLayout.getCurrentUser(), mainLayout.getContext().getCourseService(), mainLayout.getContext().getScheduleService()))),
                     createActionButton("nav_applications", "Wnioski", "#8b5cf6", () -> mainLayout.setContent(new ApplicationsView(mainLayout.getCurrentUser(), mainLayout.getContext().getRequestService()))),
                     createActionButton("nav_payments", "Płatności", "#ef4444", () -> mainLayout.setContent(new PaymentsView(mainLayout.getCurrentUser(), mainLayout.getContext().getPaymentService()))),
                     createActionButton("nav_messages", "Wiadomości", "#06b6d4", () -> mainLayout.setContent(new MessagesView(mainLayout.getCurrentUser(), mainLayout.getContext().getMessageService(), mainLayout.getContext().getAuthService()))),
@@ -154,12 +159,12 @@ public class DashboardView extends ScrollPane {
                     createActionButton("nav_my_courses", "Moje kursy", "#8b5cf6", () -> mainLayout.setContent(new LecturerCoursesView(mainLayout.getCurrentUser(), mainLayout.getContext().getCourseService()))),
                     createActionButton("nav_add_grades", "Wystaw oceny", "#10b981", () -> mainLayout.setContent(new LecturerGradesView(mainLayout.getCurrentUser(), mainLayout.getContext().getGradeService()))),
                     createActionButton("nav_messages", "Wiadomości", "#06b6d4", () -> mainLayout.setContent(new LecturerMessagesView(mainLayout.getCurrentUser(), mainLayout.getContext().getMessageService(), mainLayout.getContext().getAuthService()))),
-                    createActionButton("nav_schedule", "Plan zajęć", "#10b981", () -> mainLayout.setContent(new ScheduleView(mainLayout.getCurrentUser(), mainLayout.getContext().getCourseService())))
+                    createActionButton("nav_schedule", "Plan zajęć", "#10b981", () -> mainLayout.setContent(new ScheduleView(mainLayout.getCurrentUser(), mainLayout.getContext().getCourseService(), mainLayout.getContext().getScheduleService())))
             );
         } else if (role == UserRole.ADMINISTRATOR) {
             actionsGrid.getChildren().addAll(
-                    createActionButton("nav_manage_users", "Użytkownicy", "#2563eb", () -> mainLayout.setContent(new UserManagementView(mainLayout.getContext().getAuthService()))),
-                    createActionButton("nav_manage_schedule", "Edycja planu", "#f59e0b", () -> mainLayout.setContent(new AdminScheduleView(mainLayout.getContext().getCourseService()))),
+                    createActionButton("nav_manage_users", "Użytkownicy", "#2563eb", () -> mainLayout.setContent(new UserManagementView(mainLayout.getContext().getAuthService(), mainLayout.getContext().getCourseService()))),
+                    createActionButton("nav_manage_schedule", "Edycja planu", "#f59e0b", () -> mainLayout.setContent(new AdminScheduleView(mainLayout.getContext().getCourseService(), mainLayout.getContext().getScheduleService(), mainLayout.getContext().getAuthService()))),
                     createActionButton("nav_admin_requests", "Wnioski", "#ec4899", () -> mainLayout.setContent(new SystemRequestsView(mainLayout.getContext().getRequestService()))),
                     createActionButton("nav_admin_tickets", "Zgłoszenia", "#f97316", () -> mainLayout.setContent(new AdminTicketsView(mainLayout.getContext().getServiceTicketService()))),
                     createActionButton("nav_admin_payments", "Płatności", "#14b8a6", () -> mainLayout.setContent(new AdminPaymentsView(mainLayout.getContext().getPaymentService()))),
@@ -238,20 +243,32 @@ public class DashboardView extends ScrollPane {
     }
 
     private String calculateEctsLabel(Student student) {
-        int ectsSum = mainLayout.getContext().getCourseService().getGroupsForStudent(student).stream()
-                .map(StudentGroup::getCourse)
-                .filter(course -> course != null && course.getId() != null)
-                .collect(Collectors.toMap(
-                        course -> course.getId(),
-                        course -> course,
-                        (first, second) -> first
-                ))
-                .values()
-                .stream()
+      
+        List<Grade> studentGrades = mainLayout.getContext().getGradeService().getGradesForStudent(student);
+
+       
+        int earnedEcts = studentGrades.stream()
+                .filter(grade -> grade.getValue() >= 3.0) 
+                .map(Grade::getCourse)
+                .filter(course -> course != null)
                 .mapToInt(course -> Math.max(course.getEcts(), 0))
                 .sum();
-        return ectsSum + " / 210";
+
+        return earnedEcts + " / 210";
     }
+
+    private String calculateStudentGroupLabel(Student student) {
+        if (student == null) {
+            return MockDataProvider.i18n("dash_stat_group_no_group");
+        }
+        // Assuming a student belongs to at most one primary group for display on the dashboard.
+        // If a student can belong to multiple, this logic might need adjustment (e.g., concatenating names).
+        return mainLayout.getContext().getCourseService().getGroupsForStudent(student).stream()
+                .findFirst()
+                .map(StudentGroup::getName)
+                .orElse(MockDataProvider.i18n("dash_stat_group_no_group"));
+    }
+
 
     private String calculateUnpaidBalanceLabel(Student student) {
         BigDecimal unpaid = mainLayout.getContext().getPaymentService().getUnpaidPaymentsForStudent(student).stream()

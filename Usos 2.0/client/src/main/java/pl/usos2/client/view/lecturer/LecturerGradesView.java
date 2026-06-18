@@ -76,7 +76,7 @@ public class LecturerGradesView extends VBox {
         saveAllBtn = new Button();
         saveAllBtn.setStyle("-fx-background-color: #2563eb; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 10 20; -fx-background-radius: 6;");
         saveAllBtn.setOnAction(e -> saveGrades());
-
+        saveAllBtn.setOnAction(event -> saveAllGrades());
         getChildren().addAll(titleLabel, table, saveAllBtn);
 
         refreshLocalization();
@@ -99,7 +99,33 @@ public class LecturerGradesView extends VBox {
         alert.showAndWait();
     }
 
-    private void refreshLocalization() {
+    private void saveAllGrades() {
+        try {
+            for (GradeRow row : table.getItems()) {
+                Grade grade = row.grade;
+                Double newValue = row.gradeBox.getValue();
+                String newDesc = row.descField.getText();
+                
+              
+                if (!newValue.equals(grade.getValue()) || !newDesc.equals(grade.getDescription())) {
+                    grade.setValue(newValue);
+                    grade.setDescription(newDesc);
+                  
+                    gradeService.addGrade(grade.getStudent(), grade.getCourse(), 
+                                        currentLecturer, newValue, newDesc);
+                }
+            }
+            Alert alert = new Alert(Alert.AlertType.INFORMATION);
+            alert.setTitle(MockDataProvider.i18n("alert_info_title"));
+            alert.setHeaderText(null);
+            alert.setContentText(MockDataProvider.i18n("grades_save_success_msg"));
+            alert.showAndWait();
+        } catch (Exception e) {
+            new Alert(Alert.AlertType.ERROR, "Błąd zapisu ocen: " + e.getMessage()).show();
+        }
+    }
+
+        private void refreshLocalization() {
         titleLabel.setText(MockDataProvider.i18n("lecturer_grades_title") + " - " + currentLecturer.getFullName());
         saveAllBtn.setText(MockDataProvider.i18n("lecturer_grades_save_btn"));
 
@@ -120,6 +146,10 @@ public class LecturerGradesView extends VBox {
             this.gradeBox = new ComboBox<>(FXCollections.observableArrayList(2.0, 3.0, 3.5, 4.0, 4.5, 5.0));
             this.descField = new TextField(grade.getDescription());
 
+            if (grade != null && grade.getValue() != 0.0) {
+                this.gradeBox.setValue(grade.getValue());
+            }
+            
             this.gradeBox.setValue(grade.getValue());
             this.descField.setPrefWidth(150);
             this.gradeBox.valueProperty().addListener((obs, oldV, newV) -> updateStatusText());

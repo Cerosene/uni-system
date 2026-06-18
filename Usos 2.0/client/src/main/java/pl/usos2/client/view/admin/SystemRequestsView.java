@@ -28,6 +28,15 @@ public class SystemRequestsView extends VBox {
     private final RequestService requestService;
     private final TableView<Request> table;
 
+    private final Label titleLabel;
+    private final TableColumn<Request, String> idCol;
+    private final TableColumn<Request, String> typeCol;
+    private final TableColumn<Request, String> userCol;
+    private final TableColumn<Request, String> statusCol;
+    private final TableColumn<Request, String> dateCol;
+    private final TableColumn<Request, String> contentCol;
+    private final Button processBtn;
+
     public SystemRequestsView(RequestService requestService) {
         this.requestService = requestService;
 
@@ -35,46 +44,47 @@ public class SystemRequestsView extends VBox {
         setSpacing(20);
         setStyle("-fx-background-color: #f8fafc;");
 
-        boolean isEn = isEnglish();
-
-        Label title = new Label(isEn ? "Student Applications" : "Wnioski studenckie");
-        title.setFont(Font.font("System", FontWeight.BOLD, 24));
+        titleLabel = new Label();
+        titleLabel.setFont(Font.font("System", FontWeight.BOLD, 24));
 
         table = new TableView<>();
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
 
-        TableColumn<Request, String> idCol = new TableColumn<>("ID");
+        idCol = new TableColumn<>();
         idCol.setCellValueFactory(data -> new SimpleStringProperty(String.valueOf(data.getValue().getId())));
 
-        TableColumn<Request, String> typeCol = new TableColumn<>(isEn ? "Type" : "Typ");
+        typeCol = new TableColumn<>();
         typeCol.setCellValueFactory(data -> new SimpleStringProperty(
                 DisplayTextFormatter.formatRequestType(data.getValue().getType())
         ));
 
-        TableColumn<Request, String> userCol = new TableColumn<>(isEn ? "From" : "Od");
+        userCol = new TableColumn<>();
         userCol.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().getStudent().getFullName()));
 
-        TableColumn<Request, String> statusCol = new TableColumn<>(isEn ? "Status" : "Status");
+        statusCol = new TableColumn<>();
         statusCol.setCellValueFactory(data -> new SimpleStringProperty(
                 DisplayTextFormatter.formatRequestStatus(data.getValue().getStatus())
         ));
 
-        TableColumn<Request, String> dateCol = new TableColumn<>(isEn ? "Date" : "Data");
+        dateCol = new TableColumn<>();
         dateCol.setCellValueFactory(data -> new SimpleStringProperty(
                 data.getValue().getCreatedAt() != null ? data.getValue().getCreatedAt().toString() : ""
         ));
 
-        TableColumn<Request, String> contentCol = new TableColumn<>(isEn ? "Content" : "Treść");
+        contentCol = new TableColumn<>();
         contentCol.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().getContent()));
 
         table.getColumns().addAll(idCol, typeCol, userCol, statusCol, dateCol, contentCol);
         refreshTable();
 
-        Button processBtn = new Button(isEn ? "Process selected" : "Rozpatrz wniosek");
+        processBtn = new Button();
         processBtn.setStyle("-fx-background-color: #10b981; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 8 16; -fx-background-radius: 6;");
         processBtn.setOnAction(e -> processSelectedRequest());
 
-        getChildren().addAll(title, table, processBtn);
+        getChildren().addAll(titleLabel, table, processBtn);
+
+        refreshLocalization();
+        MockDataProvider.currentLocaleProperty().addListener((obs, oldLocale, newLocale) -> refreshLocalization());
     }
 
     private void processSelectedRequest() {
@@ -160,5 +170,21 @@ public class SystemRequestsView extends VBox {
         alert.setHeaderText(null);
         alert.setContentText(message);
         alert.showAndWait();
+    }
+
+    private void refreshLocalization() {
+        boolean isEn = isEnglish();
+
+        titleLabel.setText(isEn ? "Student Applications" : "Wnioski studenckie");
+        processBtn.setText(isEn ? "Process selected" : "Rozpatrz wniosek");
+
+        idCol.setText("ID");
+        typeCol.setText(isEn ? "Type" : "Typ");
+        userCol.setText(isEn ? "From" : "Od");
+        statusCol.setText(isEn ? "Status" : "Status");
+        dateCol.setText(isEn ? "Date" : "Data");
+        contentCol.setText(isEn ? "Content" : "Treść");
+
+        table.refresh();
     }
 }

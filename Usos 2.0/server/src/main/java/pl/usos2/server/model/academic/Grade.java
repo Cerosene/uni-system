@@ -8,13 +8,13 @@ public class Grade extends BaseEntity {
     private Student student;
     private Course course;
     private Lecturer lecturer;
-    private double value;
+    private Double value;
     private String description;
 
     public Grade() {
     }
 
-    public Grade(Long id, Student student, Course course, Lecturer lecturer, double value, String description) {
+    public Grade(Long id, Student student, Course course, Lecturer lecturer, Double value, String description) {
         super(id);
         this.student = student;
         this.course = course;
@@ -35,7 +35,7 @@ public class Grade extends BaseEntity {
         return lecturer;
     }
 
-    public double getValue() {
+    public Double getValue() {
         return value;
     }
 
@@ -43,7 +43,7 @@ public class Grade extends BaseEntity {
         return description;
     }
 
-    public void setValue(double value) {
+    public void setValue(Double value) {
         this.value = value;
     }
 
